@@ -20,6 +20,7 @@ import rtr.compat.lwjgl.opengl.Display;
  * drag B X1 Y1 X2 Y2    hold button B while moving
  * wheel N               mouse-wheel notches (+ zooms in)
  * key NAME              press and release an LWJGL key, e.g. key ESCAPE
+ * type TEXT             type characters like a phone keyboard (character events without key codes)
  * shot PATH             save a screenshot
  * exit
  * </pre>
@@ -110,6 +111,15 @@ public class ScriptedInput {
          final int k = Keyboard.getKeyIndex(c[1]);
          Keyboard.push(k, (char)0, true, false);
          this.at(now + 2L * STEP_MS, () -> Keyboard.push(k, (char)0, false, false));
+      } else if (cmd.equals("type")) {
+         for (int i = 1; i < c.length; i++) {
+            String word = (i > 1 ? " " : "") + c[i];
+
+            for (int j = 0; j < word.length(); j++) {
+               Keyboard.push(Keyboard.KEY_NONE, word.charAt(j), true, false);
+               Keyboard.push(Keyboard.KEY_NONE, word.charAt(j), false, false);
+            }
+         }
       } else if (cmd.equals("shot")) {
          this.app.saveScreenshot(c[1]);
       } else if (cmd.equals("exit")) {

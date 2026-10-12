@@ -65,6 +65,11 @@ public abstract class AbstractComponent extends InputAdapter {
       this.focus = focus;
    }
 
+   /** The component that currently has keyboard focus, or null (used to drive the on-screen keyboard). */
+   public static AbstractComponent getCurrentFocus() {
+      return currentFocus;
+   }
+
    public boolean hasFocus() {
       return this.focus;
    }

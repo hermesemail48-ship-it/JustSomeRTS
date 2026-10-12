@@ -18,6 +18,7 @@ public class GdxSlickApp extends ApplicationAdapter {
    private final long shotAtMs = (long)(Float.parseFloat(System.getProperty("rtr.shotAt", "20")) * 1000.0F);
    private long startMs;
    private ScriptedInput script;
+   private OnscreenKeyboard keyboard;
 
    public GdxSlickApp(Runnable launcher) {
       this.launcher = launcher;
@@ -34,6 +35,10 @@ public class GdxSlickApp extends ApplicationAdapter {
       Display.update();
       Renderer.gdx().initDisplay(Display.getWidth(), Display.getHeight());
       this.startMs = System.currentTimeMillis();
+      if (this.input.getTouchTranslator() != null) {
+         this.keyboard = new OnscreenKeyboard();
+      }
+
       this.launcher.run();
       if (System.getProperty("rtr.script") != null) {
          try {
@@ -54,6 +59,10 @@ public class GdxSlickApp extends ApplicationAdapter {
       this.input.update();
       if (this.script != null) {
          this.script.update();
+      }
+
+      if (this.keyboard != null) {
+         this.keyboard.update();
       }
 
       AppGameContainer container = AppGameContainer.current();

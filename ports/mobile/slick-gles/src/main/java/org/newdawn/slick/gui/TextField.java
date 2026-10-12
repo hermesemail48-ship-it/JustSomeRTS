@@ -89,6 +89,10 @@ public class TextField extends AbstractComponent {
 
    @Override
    public void render(GUIContext container, Graphics g) {
+      if (this.hasFocus()) {
+         rtr.compat.OnscreenKeyboard.focusedFieldDrawn(this.x, this.y, this.height);
+      }
+
       if (this.lastKey != -1) {
          if (this.input.isKeyDown(this.lastKey)) {
             if (this.repeatTimer < System.currentTimeMillis()) {

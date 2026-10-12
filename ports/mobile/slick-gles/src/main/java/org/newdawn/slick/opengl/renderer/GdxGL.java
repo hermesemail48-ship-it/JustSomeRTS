@@ -688,7 +688,36 @@ public class GdxGL implements SGL {
 
    @Override
    public void enterOrtho(int width, int height) {
-      this.setProjectionOrtho(0.0F, width, height, 0.0F);
+      this.mainWidth = width;
+      this.mainHeight = height;
+      this.setProjectionOrtho(0.0F, width, height + this.viewOffsetY, this.viewOffsetY);
+   }
+
+   private int mainWidth;
+   private int mainHeight;
+   private float viewOffsetY;
+
+   /**
+    * Scrolls the main screen up by {@code offset} logical pixels (keeps a focused text field above the on-screen
+    * keyboard). Call only while the main screen, not an off-screen image, is the render target.
+    */
+   public void setViewOffsetY(float offset) {
+      if (offset != this.viewOffsetY) {
+         this.viewOffsetY = offset;
+         if (this.mainWidth > 0) {
+            this.enterOrtho(this.mainWidth, this.mainHeight);
+         }
+      }
+   }
+
+   public float getViewOffsetY() {
+      return this.viewOffsetY;
+   }
+
+   /** Model-view transform of a point's y, i.e. where it lands on the logical screen (before the view offset). */
+   public float screenY(float x, float y) {
+      float[] m = this.modelView.val;
+      return m[1] * x + m[5] * y + m[13];
    }
 
    @Override

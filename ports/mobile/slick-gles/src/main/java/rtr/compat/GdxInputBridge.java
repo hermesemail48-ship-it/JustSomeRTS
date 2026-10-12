@@ -40,7 +40,8 @@ public class GdxInputBridge extends InputAdapter {
 
    /** Window pixels (top-left origin) to the game's logical y, in LWJGL's bottom-up convention. */
    public int toLwjglY(int screenY) {
-      int y = (int)((float)screenY * Display.getHeight() / Math.max(1, Gdx.graphics.getHeight()));
+      int y = (int)((float)screenY * Display.getHeight() / Math.max(1, Gdx.graphics.getHeight())
+         + org.newdawn.slick.opengl.renderer.Renderer.gdx().getViewOffsetY());
       return Display.getHeight() - 1 - y;
    }
 
