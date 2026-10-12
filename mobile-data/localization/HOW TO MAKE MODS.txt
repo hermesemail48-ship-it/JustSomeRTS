@@ -1,0 +1,29 @@
+Making mods is a fairly simple process, although there are a few snags if your language is not supported in the game's built in default font. But, overall you can make language packs with absolutely no prior modding or programming experience of any kind!
+
+Note: I recommend downloading notepad++ ( https://notepad-plus-plus.org/ ) as it'll give you nice syntax highlighting and make things easier to read. You can also try alternatives, like sublime text ( https://www.sublimetext.com/ ). ****DO NOT USE MICROSOFT WORD!!****
+
+Optional: If you're using notepad++, you may find the Comparison plugin ( https://github.com/pnedev/compare-plugin/releases/tag/v2.0.0 ) very useful in the future, it'll allow you to compare your work with the default translations, making it easier to pinpoint keys that need to be added. To install it, simply download the 32 or 64 bit version of the plugin, depending on the version of notepad++ you installed. Once downloaded open your notepad++'s install folder and drop the contents of the zip in /plugins/ and restart notepad++. Then, "Compare" should pop up on the plugin drop down.
+
+You also don't have to fully translate the game before you distribute the mod. In fact, uploading and distributing your mod early should be encouraged, so you can start getting community feedback if there's any errors or suggestions. If you're using Steam workshop, your mod will also automatically be updated for all your subscribers as you upload updates. :)
+
+1) Open up the "localizations" folder in the Rise to Ruins install folder (This should be the same folder this file is in)
+2) Assuming you have no other language mods installed, you should see two folders. "defaultEnglish" and "flags".
+3) Make a copy of defaultEnglish, this copy will be your working folder for the mod.
+4) Rename the folder to anything you'd like.
+5) Open your new folder, inside will be 2 files, configuration.properties and text.yml.
+6) Open configuration.properties with the text editor of your choice, and follow the instructions. Don't get too overwhelmed, most of these settings you don't even have to mess with unless you're using custom fonts! :)
+7) Save the file when you're done. (Note: Some languages may require saving in UTF-8 format, to do this in notepad++, click the encoding dropdown, click 'Convert to UTF-8' and then save the file)
+8) Open text.yml, with the text editor of your choice.
+9) Change all the strings following text: until you want to murder the developer for adding so much text to the game.
+10) Plot to murder developer, hopefully fail.
+12) Once you're ready, upload your mod somewhere (see below).
+
+Uploading your mod to Steam:
+1) Once your mod is ready to be uploaded, open "WorkshopUploader.exe" in Rise to Ruins' install folder. (Note: If using Linux or Mac, run WorkshopUploader.jar instead)
+2) Click "Create new item" (or, if updating a previous mod, click on the mod on the left hand box)
+3) Fill out the boxes as desired.
+4) Click upload!
+
+Uploading your mod anywhere else:
+1) Zip the entire folder your mod is in, and upload it somewhere like dropbox or google drive.
+2) Post the link wherever you want to distribute it. I recommend posting it on Rise to Ruins' official website ( www.risetoruins.com ). But you can also post it anywhere on the Internet you'd like that makes sense to you.

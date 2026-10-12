@@ -1,0 +1,6 @@
+// Slick2D (BSD) re-hosted on libGDX: LWJGL 2 is emulated under rtr.compat.lwjgl.
+plugins { id 'java-library' }
+dependencies {
+    api "com.badlogicgames.gdx:gdx:$gdxVersion"
+    api "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+}

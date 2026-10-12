@@ -1,0 +1,41 @@
+// Rise to Ruins game code, compiled from the shared recompiled sources in ../../recomp/src.
+// Sources are copied with two mechanical rewrites (see prepareGameSources); nothing under recomp/ is modified.
+plugins { id 'java-library' }
+
+def recompSrc = file("$rootDir/../../recomp/src")
+def generated = layout.buildDirectory.dir('generated/rtr')
+
+// Files replaced by this module's src/main/java (or not needed on mobile).
+def excluded = [
+    'rtr/platform/desktop/**',
+    'rtr/utilities/Steamworks.java',
+    'rtr/utilities/SteamClientAPITest.java',
+    'rtr/utilities/SteamTestApp.java',
+]
+
+tasks.register('prepareGameSources', Sync) {
+    from(recompSrc) {
+        include 'rtr/**', 'r2d/**'
+        exclude excluded
+    }
+    into generated
+    filteringCharset = 'UTF-8'
+    filter { String line ->
+        line.replace('org.lwjgl.', 'rtr.compat.lwjgl.')
+            // Android has no settable working directory: anchor the game's relative paths to its data folder.
+            // Read-only assets (may live inside an iOS app bundle) vs. writable save data.
+            .replaceAll(/"(res|localization)\//, 'rtr.compat.RtrPaths.ASSETS + "$1/')
+            .replaceAll(/"(profiles|maps|logs)\//, 'rtr.compat.RtrPaths.ROOT + "$1/')
+    }
+}
+
+sourceSets.main.java.srcDirs += generated
+tasks.named('compileJava') { dependsOn 'prepareGameSources' }
+
+dependencies {
+    api project(':slick-gles')
+    // The android build of SnakeYAML avoids java.beans, which MobiVM (iOS) lacks. The game only loads plain maps.
+    api 'org.yaml:snakeyaml:1.23:android'
+    api 'commons-io:commons-io:2.5'
+    api 'commons-net:commons-net:3.5'
+}

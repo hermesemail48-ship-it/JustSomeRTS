@@ -1,0 +1,34 @@
+package rtr.objects.towerhead.towerheadflags;
+
+import rtr.map.CollisionModule;
+import rtr.missiles.MissileModule;
+import rtr.mobs.MobBase;
+import rtr.objects.towerhead.TowerBase;
+
+public class CorruptedLightningBowTowerHeadFlags extends TowerHeadFlags {
+   public CorruptedLightningBowTowerHeadFlags(TowerBase.TowerUpgradeStage subType) {
+      super(subType);
+   }
+
+   @Override
+   protected void configTower() {
+      this.towerType = TowerBase.TowerType.CORRUPTED_LIGHTNING_BOW;
+      this.collisionHeight = CollisionModule.CollisionHeight.HIGH;
+      this.rotationRate = 300;
+      this.findTargetRate = 60;
+      this.changeTargetRate = 300;
+      this.canTargetMob = true;
+      this.canTargetObject = true;
+      this.targetMobGroups.add(MobBase.MobGroup.VILLAGER);
+      this.targetMobGroups.add(MobBase.MobGroup.NOMAD);
+      this.targetMobGroups.add(MobBase.MobGroup.MIGRANT);
+      this.targetMobGroups.add(MobBase.MobGroup.CHARMED_MONSTER);
+      this.targetMobGroups.add(MobBase.MobGroup.DOMESTICATED_ANIMAL);
+      this.targetMobGroups.add(MobBase.MobGroup.GOLEM);
+      this.distance = 20;
+      this.reloadRate = 75;
+      this.fireRate = 75;
+      this.fireEnergyCost = 10;
+      this.missileType = MissileModule.MissileType.LIGHTNING_ARROW;
+   }
+}

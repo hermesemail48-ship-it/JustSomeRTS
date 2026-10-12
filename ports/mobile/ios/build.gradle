@@ -1,0 +1,32 @@
+// iOS app via MobiVM. Build on macOS with Xcode installed:
+//   ./gradlew :ios:createIPA          (unsigned IPA for sideloading, see docs/IOS.md)
+//   ./gradlew :ios:launchIPhoneSimulator
+// The game data pack (../../mobile-data, built by scripts/build_mobile_data.py) is bundled into the app.
+buildscript {
+    repositories { mavenCentral() }
+    dependencies { classpath "com.mobidevelop.robovm:robovm-gradle-plugin:$robovmVersion" }
+}
+
+apply plugin: 'java'
+apply plugin: 'robovm'
+
+ext { mainClassName = 'rtr.mobile.ios.IOSLauncher' }
+
+dependencies {
+    implementation project(':game')
+    implementation "com.mobidevelop.robovm:robovm-rt:$robovmVersion"
+    implementation "com.mobidevelop.robovm:robovm-cocoatouch:$robovmVersion"
+    implementation "com.badlogicgames.gdx:gdx-backend-robovm:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-ios"
+    implementation "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-ios"
+}
+
+robovm {
+    archs = 'arm64'
+    // Sideloading tools (Sideloadly, AltStore) re-sign the IPA with your own Apple ID.
+    iosSkipSigning = true
+}
+
+tasks.named('createIPA') { dependsOn 'build' }
+tasks.named('launchIPhoneSimulator') { dependsOn 'build' }
+tasks.named('launchIOSDevice') { dependsOn 'build' }

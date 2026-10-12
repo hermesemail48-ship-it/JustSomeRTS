@@ -1,0 +1,167 @@
+package rtr.mobs.friendly.catjeet;
+
+import org.newdawn.slick.Color;
+import rtr.PerkModule;
+import rtr.SoundModule;
+import rtr.map.CollisionModule;
+import rtr.map.MapData;
+import rtr.mobs.MobBase;
+import rtr.mobs.MobFlagsBase;
+import rtr.particles.ParticleModule;
+import rtr.utilities.Utilities;
+
+public class CatjeetNomadChildFlags extends MobFlagsBase {
+   public CatjeetNomadChildFlags() {
+      this.colorLayersArrays[0] = new Color[]{
+         new Color(-15724528),
+         new Color(-12969207),
+         new Color(-10528435),
+         new Color(-7310758),
+         new Color(-3489122),
+         new Color(-3487553),
+         new Color(-6725583),
+         new Color(-13295341)
+      };
+      this.colorLayersArrays[1] = Utilities.returnColorArrayBrighter(this.colorLayersArrays[0], 1.0F);
+      this.colorLayersArrays[2] = new Color[]{new Color(-12368506)};
+      this.colorLayersArrays[3] = new Color[]{new Color(-12881034)};
+      this.colorLayersArrays[4] = Utilities.returnColorArrayDarker(this.colorLayersArrays[0], 0.5F);
+      this.colorLayersArrays[6] = Utilities.returnColorArrayDarker(this.colorLayersArrays[0], 0.2F);
+      this.mobSoundSets.put(MobBase.MobGender.MALE, SoundModule.SoundSet.VILLAGER_MALE);
+      this.mobSoundSets.put(MobBase.MobGender.FEMALE, SoundModule.SoundSet.VILLAGER_FEMALE);
+      this.idleSoundRate = 2000;
+      this.blockMapGroup = MapData.BlockMapGroup.STANDARD_NO_CORRUPTION;
+      this.aggressiveness = -100;
+      this.levelCapLow = 1;
+      this.levelCapHigh = 2;
+      this.statVelocityBase = 0.8F;
+      this.statVelocityMultiplier = 0.0014F;
+      this.experienceMultiplier = 100;
+      this.statsPerLevel = 25;
+      this.statStrengthChance = 10;
+      this.statDexterityChance = 5;
+      this.allowInventory = true;
+      this.allowInventoryRandomSpawnItems = true;
+      this.inventoryRandomSpawnItemsChance = 4;
+      this.inventorySearchChance = 100;
+      this.inventoryNearbyResourcesOnGroundDistance = 8;
+      this.canInventoryEquipRecovery = true;
+      this.canInventoryEquipWater = true;
+      this.canInventoryEquipFood = true;
+      this.allowAging = true;
+      this.agingGrowUpAge = 3;
+      this.agingGrowUpType = MobBase.MobType.CATJEET_NOMAD;
+      this.agingMaximumAge = 35;
+      this.agingRate = this.time.getFullDayLength();
+      this.agingConstitutionDecayRate = 50000;
+      this.allowHealthRegen = true;
+      this.healthRegenRate = 350;
+      this.allowHealthRepair = true;
+      this.healthRepairChance = 100;
+      this.healthRepairCriticalChance = 5;
+      this.healthRepairPercentage = 0.6;
+      this.healthRepairCriticalPercentage = 0.2;
+      this.allowThermal = true;
+      this.canThermalFreeze = true;
+      this.canThermalFreezeCritical = true;
+      this.canThermalOverheat = true;
+      this.canThermalOverheatCritical = true;
+      this.thermalBaseline = 50;
+      this.thermalFreeze = 20;
+      this.thermalFreezeCritical = 10;
+      this.thermalOverheat = 80;
+      this.thermalOverheatCritical = 90;
+      this.thermalIncreaseTempChance = 300;
+      this.thermalAdjustRate = 1500;
+      this.allowWander = true;
+      this.wanderChance = 100;
+      this.canWanderAimlessly = true;
+      this.wanderAimlesslyWeight = 10;
+      this.wanderAimlesslyDistance = 12;
+      this.allowConfused = true;
+      this.confusedChance = 7000;
+      this.confusedWanderChance = 1500;
+      this.confusedBreakAwayChance = 1000;
+      this.confusedWanderDistance = 6;
+      this.allowPanic = true;
+      this.panicChance = 50;
+      this.panicBreakAwayChance = 1500;
+      this.panicDistance = 10;
+      this.allowSleep = true;
+      this.canSleepOutside = true;
+      this.sleepDelay = 50;
+      this.sleepOutsideEnergyLevel = 5;
+      this.sleepOutsideChance = 100;
+      this.sleepOutsideBreakawayLevel = 40;
+      this.sleepOutsideBreakawayChance = 10;
+      this.energyDecayRate = 1000;
+      this.allowIncapacitated = true;
+      this.incapacitatedBreakawayChance = 8000;
+      this.allowHunger = true;
+      this.hungerFindFoodChance = 20;
+      this.hungerStarvationFoodSearchLevel = 10;
+      this.hungerHungryFoodSearchLevel = 30;
+      this.hungerSnackSearchLevel = 70;
+      this.hungerHungryFoodSearchDistance = 16;
+      this.hungerHarvestTime = 1000;
+      this.hungerEatTime = 60;
+      this.hungerInHomeEatLevel = 50;
+      this.hungerEatBreakawayLevel = 75;
+      this.hungerEatBreakawayChance = 3;
+      this.hungerDecayRate = 1500;
+      this.hungerStarvationRate = 500;
+      this.allowThirst = true;
+      this.thirstFindWaterChance = 20;
+      this.thirstDehydrationWaterSearchLevel = 10;
+      this.thirstThirstyWaterSearchLevel = 20;
+      this.thirstSnackSearchLevel = 50;
+      this.thirstOverheatSearchLevel = 90;
+      this.thirstThirstyWaterSearchDistance = 16;
+      this.thirstHarvestTime = 200;
+      this.thirstDrinkTime = 30;
+      this.thirstInHomeDrinkLevel = 50;
+      this.thirstDrinkBreakawayLevel = 75;
+      this.thirstDrinkBreakawayChance = 300;
+      this.thirstDecayRate = 2000;
+      this.thirstDehydrationRate = 500;
+      this.allowCombat = true;
+      this.allowCombatMelee = true;
+      this.combatMeleeLineOfSight = CollisionModule.CollisionHeight.HIGH;
+      this.combatDamageType = MobBase.DamageType.CRUSHING;
+      this.combatSearchDistance = 6;
+      this.combatAggroChance = 220;
+      this.combatFleeSearchDistance = 32;
+      this.combatFleeRandomDistance = 24;
+      this.combatAttackBreakawayChance = 300;
+      this.combatFleeBreakawayChance = 300;
+      this.combatCanAttackMobs = true;
+      this.allowOnFire = true;
+      this.onFireCanPanic = true;
+      this.onFirePanicChance = 50;
+      this.onFirePanicDistance = 8;
+      this.onFireAmountMaximum = 5000;
+      this.allowFrozen = true;
+      this.frozenAmountMaximum = 5000;
+      this.allowPoisoned = true;
+      this.poisonedAmountMaximum = 15000;
+      this.allowDysentery = true;
+      this.dysenteryAmountMaximum = 15000;
+      this.allowBlight = true;
+      this.blightSpawnType = MobBase.MobType.ZOMBIE_CATJEET_CHILD;
+      this.blightAmountMaximum = 30000;
+      this.allowNomadBehavior = true;
+      this.nomadBehaviorChance = 500;
+      this.nomadBehaviorMobType = MobBase.MobType.CATJEET_VILLAGER_CHILD;
+      this.nomadBehaviorPackDistance = 24;
+      this.maximumAlpha = 1.0F;
+      this.bloodType = ParticleModule.ParticleSet.BLOOD_RED;
+      this.configPerkAdjustments();
+   }
+
+   @Override
+   protected void configPerkAdjustments() {
+      this.perkAdjustment(PerkModule.PerkType.VILLAGER_COLD_RESISTANCE);
+      this.perkAdjustment(PerkModule.PerkType.VILLAGER_HEAT_RESISTANCE);
+      this.perkAdjustment(PerkModule.PerkType.VILLAGER_LIFESPANS);
+   }
+}

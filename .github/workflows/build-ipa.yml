@@ -1,0 +1,81 @@
+# Builds the Rise to Ruins iPhone app (unsigned IPA) on a GitHub-hosted Mac.
+# Run it from the Actions tab ("Run workflow"), or push to main. The IPA is attached to the run as an artifact;
+# sign + install it with Sideloadly (see README.md).
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ipa
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    # macOS runners are the only place Apple's iOS toolchain can run. If GitHub retires this image,
+    # change it to a newer macos-NN label.
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Show Xcode
+        run: xcodebuild -version && xcrun --sdk iphoneos --show-sdk-path
+
+      - name: Cache Gradle and MobiVM downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.robovm
+            ~/.m2/repository
+          key: rtr-ios-${{ runner.os }}-${{ hashFiles('ports/mobile/**/*.gradle', 'ports/mobile/gradle.properties', 'ports/mobile/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: rtr-ios-${{ runner.os }}-
+
+      - name: Compile to native ARM64 and create the IPA
+        working-directory: ports/mobile
+        env:
+          GRADLE_OPTS: -Xmx4g -Dorg.gradle.daemon=false
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :ios:createIPA
+
+      - name: Collect the IPA
+        run: |
+          ipa=$(find ports/mobile/ios/build -name '*.ipa' -type f | head -1)
+          if [ -z "$ipa" ]; then
+            # Fall back to packaging the built .app ourselves (an IPA is just Payload/<App>.app zipped).
+            app=$(find ports/mobile/ios/build -name '*.app' -type d | head -1)
+            if [ -z "$app" ]; then echo "No .ipa or .app was produced"; exit 1; fi
+            mkdir -p pkg/Payload && cp -R "$app" pkg/Payload/
+            (cd pkg && zip -qry ../RiseToRuins.ipa Payload)
+            ipa=RiseToRuins.ipa
+          fi
+          mkdir -p dist && cp "$ipa" dist/RiseToRuins.ipa
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RiseToRuins-ipa
+          path: dist/RiseToRuins.ipa
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            ports/mobile/ios/build/robovm/**/*.log
+            ~/.robovm/**/*.log
+          if-no-files-found: ignore
