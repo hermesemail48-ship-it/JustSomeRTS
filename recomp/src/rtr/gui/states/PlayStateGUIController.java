@@ -75,6 +75,8 @@ public class PlayStateGUIController extends GUIControllerBase {
    private PositionArrows positionArrows;
    private ProblemPanel problemPanel;
    private ResourceAndInfluenceBar resourceAndInfluenceBar;
+   /** Set by the phone port: its native build drawer and inspect cards replace the right panel and bottom panels. */
+   public static boolean touchPanels = false;
    private RightPanel rightPanel;
    private SelectedMobPanel selectedMobPanel;
    private SelectedObjectPanel selectedObjectPanel;
@@ -277,21 +279,32 @@ public class PlayStateGUIController extends GUIControllerBase {
          this.spellBar.render(this.debug);
          this.systemAndDataBar.render(this.debug);
          this.leftPanel.render(this.debug);
-         this.rightPanel.render(this.debug);
+         boolean phoneBuild = touchPanels
+            && !(rtr.system.Game.getCS() instanceof rtr.states.PlayState && ((rtr.states.PlayState)rtr.system.Game.getCS()).isSandbox());
+         if (!phoneBuild) {
+            this.rightPanel.render(this.debug);
+         }
+
          this.harvestAndTerrainBar.render(this.debug);
-         if (this.consolePanelEnabled) {
+         if (touchPanels) {
+            // The phone UI draws its own build drawer and inspect cards; skipping these panels also removes their
+            // click masks. Goal popups keep their usual anchor.
             this.goalPopup.render(this.consolePanel.getY(), this.debug);
-            this.consolePanel.render(this.debug);
-         }
+         } else {
+            if (this.consolePanelEnabled) {
+               this.goalPopup.render(this.consolePanel.getY(), this.debug);
+               this.consolePanel.render(this.debug);
+            }
 
-         if (this.objectPanelEnabled) {
-            this.goalPopup.render(this.selectedObjectPanel.getY(), this.debug);
-            this.selectedObjectPanel.render(this.debug);
-         }
+            if (this.objectPanelEnabled) {
+               this.goalPopup.render(this.selectedObjectPanel.getY(), this.debug);
+               this.selectedObjectPanel.render(this.debug);
+            }
 
-         if (this.mobPanelEnabled) {
-            this.goalPopup.render(this.selectedMobPanel.getY(), this.debug);
-            this.selectedMobPanel.render(this.debug);
+            if (this.mobPanelEnabled) {
+               this.goalPopup.render(this.selectedMobPanel.getY(), this.debug);
+               this.selectedMobPanel.render(this.debug);
+            }
          }
 
          this.toolsBar.render(this.debug);

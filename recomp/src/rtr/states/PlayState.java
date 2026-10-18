@@ -4849,6 +4849,124 @@ public class PlayState extends StateBase {
       }
    }
 
+   // ---- Touch UI API (rtr.mobile): everything runs on the render thread between updates. ----
+
+   public void startPlacing(MapTilesLoader.TileSet type) throws SlickException {
+      this.cancelTasks();
+      this.gui.getGUIData().setPlacementObject(type, ObjectBase.ObjectSubType.CONSTRUCTION, ObjectBase.ObjectSubType.BUILT);
+      sound.playSound(SoundModule.SoundType.BUTTON_CLICK);
+   }
+
+   public void startRoadTool(RoadModule.RoadType type) throws SlickException {
+      this.cancelTasks();
+      this.gui.getGUIData().setInterfaceModeRoad(GUIEnums.InterfaceMode.ASSIGN_ROAD_WORK, type);
+      sound.playSound(SoundModule.SoundType.BUTTON_CLICK);
+   }
+
+   public void startTool(GUIEnums.InterfaceMode mode) throws SlickException {
+      this.cancelTasks();
+      this.gui.getGUIData().setInterfaceMode(mode);
+      sound.playSound(SoundModule.SoundType.BUTTON_CLICK);
+   }
+
+   public boolean isSandbox() {
+      return save.getActiveRegionalSave().getGameMode() == GameModeTemplateBase.GameMode.SANDBOX;
+   }
+
+   public boolean isSkirmish() {
+      return save.getActiveRegionalSave().getGameType() == StateBase.GameType.SKIRMISH;
+   }
+
+   public boolean canBuildRoads() {
+      return object.objectCount(MapTilesLoader.TileSet.WAY_MAKER_SHACK, ObjectBase.ObjectSubType.BUILT) > 0
+         || object.objectCount(MapTilesLoader.TileSet.WAY_MAKER_SHACK, ObjectBase.ObjectSubType.CONSTRUCTION) > 0;
+   }
+
+   public boolean hasCamp() {
+      return object.objectCount(MapTilesLoader.TileSet.CASTLE_1) > 0;
+   }
+
+   public int countBuildings(MapTilesLoader.TileSet type) {
+      return object.objectCount(type);
+   }
+
+   /** {used, max} building slots. */
+   public int[] getBuildingSlots() {
+      return new int[]{object.getActiveBuildings(), object.getMaximumBuildings()};
+   }
+
+   public rtr.objects.objectflags.ObjectFlags getBuiltFlags(MapTilesLoader.TileSet type) {
+      return object.getObjectFlagFactory().getObjectFlags(type, ObjectBase.ObjectSubType.BUILT);
+   }
+
+   /** The selected villager, or null; drops a selection whose mob no longer exists. */
+   public MobBase getTouchSelectedMob() {
+      MobBase m = this.gui.getGUIData().getSelectedMob();
+      if (m != null && (!mob.getMobArray().contains(m) || m.getNoSelect())) {
+         this.gui.deselectAllSelected();
+         return null;
+      }
+
+      return m;
+   }
+
+   /** The selected building, or null; drops a selection whose object no longer exists. */
+   public ObjectBase getTouchSelectedObject() {
+      ObjectBase o = this.gui.getGUIData().getSelectedObject();
+      if (o != null && !object.objectExists(o)) {
+         this.gui.deselectAllSelected();
+         return null;
+      }
+
+      return o;
+   }
+
+   public void deselectAll() {
+      this.gui.deselectAllSelected();
+   }
+
+   /** {current (incl. en route), desired, maximum} workers for the building's job, or null if it has no workers. */
+   public int[] getWorkers(ObjectBase o) {
+      MobJobBase.MobJobType jt = o.getObjectFlags().getWorkerJobType();
+      if (jt == null || jt == MobJobBase.MobJobType.NONE) {
+         return null;
+      }
+
+      return new int[]{mobJob.getCurrentWorkers(jt, true), mobJob.getDesiredWorkers(jt), mobJob.getMaximumWorkers(jt)};
+   }
+
+   public void changeWorkers(ObjectBase o, int delta) throws SlickException {
+      MobJobBase.MobJobType jt = o.getObjectFlags().getWorkerJobType();
+      if (jt != null && jt != MobJobBase.MobJobType.NONE) {
+         if (delta > 0) {
+            mobJob.increaseDesiredWorkers(jt, delta);
+         } else if (delta < 0) {
+            mobJob.decreaseDesiredWorkers(jt, -delta);
+         }
+
+         sound.playSound(SoundModule.SoundType.BUTTON_CLICK);
+      }
+   }
+
+   public void togglePausedTouch(ObjectBase o) throws SlickException {
+      o.togglePaused();
+      sound.playSound(SoundModule.SoundType.BUTTON_CLICK);
+   }
+
+   public void dismantleTouch(ObjectBase o) throws SlickException {
+      o.startDismantle();
+      sound.playSound(SoundModule.SoundType.BUTTON_CLICK);
+   }
+
+   public void upgradeTouch(ObjectBase o, MapTilesLoader.TileSet next) throws SlickException {
+      o.toggleUpgrade(next);
+      sound.playSound(SoundModule.SoundType.BUTTON_CLICK);
+   }
+
+   public void togglePauseGame() {
+      this.gamePaused = !this.gamePaused;
+   }
+
    public boolean isGamePaused() {
       return this.gamePaused;
    }

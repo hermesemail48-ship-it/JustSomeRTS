@@ -43,6 +43,10 @@ public class TextureImpl implements Texture {
       this.cacheName = cacheName;
    }
 
+   public String getCacheName() {
+      return this.cacheName;
+   }
+
    @Override
    public boolean hasAlpha() {
       return this.alpha;
@@ -192,6 +196,16 @@ public class TextureImpl implements Texture {
                it.remove();
             }
          }
+      }
+   }
+
+   static void uncache(TextureImpl tex) {
+      uncachePixels(tex);
+   }
+
+   static byte[] cached(TextureImpl tex) {
+      synchronized (pixelCache) {
+         return pixelCache.get(tex);
       }
    }
 

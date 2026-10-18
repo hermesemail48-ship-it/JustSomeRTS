@@ -24,6 +24,11 @@ public class TrueTypeFont implements Font {
    private final boolean antiAlias;
    private int fontHeight;
    private Texture[] pages;
+   /** Per page: texture-space origin and the size of the texture it lives in (an atlas page when packed). */
+   private float[] pageU;
+   private float[] pageV;
+   private float[] pageTexW;
+   private float[] pageTexH;
    private int pageWidth;
    private int pageHeight;
 
@@ -102,8 +107,28 @@ public class TrueTypeFont implements Font {
       }
 
       this.pages = new Texture[page + 1];
+      this.pageU = new float[page + 1];
+      this.pageV = new float[page + 1];
+      this.pageTexW = new float[page + 1];
+      this.pageTexH = new float[page + 1];
 
       for (int p = 0; p <= page; p++) {
+         this.pageTexW[p] = this.pageWidth;
+         this.pageTexH[p] = this.pageHeight;
+         org.newdawn.slick.opengl.AtlasTexture packed = org.newdawn.slick.opengl.TextureAtlas.packPixels(
+            "font:" + this.hashCode() + ":" + p, this.pageWidth, this.pageHeight, atlases[p].getPixels()
+         );
+         if (packed != null) {
+            // Glyphs share the sprite atlas, so text drawn between sprites doesn't end the batch.
+            this.pages[p] = packed;
+            this.pageU[p] = packed.getAtlasU();
+            this.pageV[p] = packed.getAtlasV();
+            this.pageTexW[p] = packed.getTextureWidth();
+            this.pageTexH[p] = packed.getTextureHeight();
+            atlases[p].dispose();
+            continue;
+         }
+
          try {
             this.pages[p] = InternalTextureLoader.get().getTexture(new TrueTypeFont.PixmapData(atlases[p]), 9729);
          } catch (IOException var14) {
@@ -118,11 +143,11 @@ public class TrueTypeFont implements Font {
       return c < 256 ? this.charArray[c] : this.customChars.get((char)c);
    }
 
-   private void drawQuad(float drawX, float drawY, float drawX2, float drawY2, float srcX, float srcY, float srcX2, float srcY2) {
-      float tx = srcX / this.pageWidth;
-      float ty = srcY / this.pageHeight;
-      float tw = (srcX2 - srcX) / this.pageWidth;
-      float th = (srcY2 - srcY) / this.pageHeight;
+   private void drawQuad(int p, float drawX, float drawY, float drawX2, float drawY2, float srcX, float srcY, float srcX2, float srcY2) {
+      float tx = this.pageU[p] + srcX / this.pageTexW[p];
+      float ty = this.pageV[p] + srcY / this.pageTexH[p];
+      float tw = (srcX2 - srcX) / this.pageTexW[p];
+      float th = (srcY2 - srcY) / this.pageTexH[p];
       GL.glTexCoord2f(tx, ty);
       GL.glVertex2f(drawX, drawY);
       GL.glTexCoord2f(tx, ty + th);
@@ -179,7 +204,7 @@ public class TrueTypeFont implements Font {
             TrueTypeFont.Glyph g = this.glyph(whatchars.charAt(i));
             if (g != null) {
                if (g.page == p) {
-                  this.drawQuad(x + total, y, x + total + g.width, y + g.height, g.storedX, g.storedY, g.storedX + g.width, g.storedY + g.height);
+                  this.drawQuad(p, x + total, y, x + total + g.width, y + g.height, g.storedX, g.storedY, g.storedX + g.width, g.storedY + g.height);
                }
 
                total += g.width;

@@ -85,7 +85,9 @@ public class Image implements Renderable {
    public Image(Texture texture) {
       this.texture = texture;
       this.ref = texture.toString();
-      this.clampTexture();
+      if (!(texture instanceof org.newdawn.slick.opengl.AtlasTexture)) {
+         this.clampTexture();
+      }
    }
 
    public Image(String ref) throws SlickException {
@@ -125,6 +127,11 @@ public class Image implements Renderable {
 
    public void setFilter(int f) {
       this.filter = f;
+      if (this.texture instanceof org.newdawn.slick.opengl.AtlasTexture) {
+         // Atlas pages are shared and always nearest-filtered.
+         return;
+      }
+
       this.texture.bind();
       GL.glTexParameteri(3553, 10241, this.filter);
       GL.glTexParameteri(3553, 10240, this.filter);
@@ -271,8 +278,15 @@ public class Image implements Renderable {
          if (this.texture != null) {
             this.width = this.texture.getImageWidth();
             this.height = this.texture.getImageHeight();
-            this.textureOffsetX = 0.0F;
-            this.textureOffsetY = 0.0F;
+            if (this.texture instanceof org.newdawn.slick.opengl.AtlasTexture) {
+               // Packed into a shared texture: texture space starts at the image's corner on the page.
+               this.textureOffsetX = ((org.newdawn.slick.opengl.AtlasTexture)this.texture).getAtlasU();
+               this.textureOffsetY = ((org.newdawn.slick.opengl.AtlasTexture)this.texture).getAtlasV();
+            } else {
+               this.textureOffsetX = 0.0F;
+               this.textureOffsetY = 0.0F;
+            }
+
             this.textureWidth = this.texture.getWidth();
             this.textureHeight = this.texture.getHeight();
          }
@@ -854,8 +868,17 @@ public class Image implements Renderable {
          this.pixelData = this.texture.getTextureData();
       }
 
-      int xo = (int)(this.textureOffsetX * this.texture.getTextureWidth());
-      int yo = (int)(this.textureOffsetY * this.texture.getTextureHeight());
+      int xo = Math.round(this.textureOffsetX * this.texture.getTextureWidth());
+      int yo = Math.round(this.textureOffsetY * this.texture.getTextureHeight());
+      int stride = this.texture.getTextureWidth();
+      if (this.texture instanceof org.newdawn.slick.opengl.AtlasTexture) {
+         // Pixel data is the packed image's own (see AtlasTexture.getTextureData).
+         org.newdawn.slick.opengl.AtlasTexture at = (org.newdawn.slick.opengl.AtlasTexture)this.texture;
+         xo -= at.getRegionX();
+         yo -= at.getRegionY();
+         stride = at.getImageWidth();
+      }
+
       if (this.textureWidth < 0.0F) {
          x = xo - x;
       } else {
@@ -868,7 +891,7 @@ public class Image implements Renderable {
          y = yo + y;
       }
 
-      int offset = x + y * this.texture.getTextureWidth();
+      int offset = x + y * stride;
       offset *= this.texture.hasAlpha() ? 4 : 3;
       return this.texture.hasAlpha()
          ? new Color(

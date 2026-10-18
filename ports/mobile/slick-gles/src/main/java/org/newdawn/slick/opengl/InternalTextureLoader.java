@@ -92,6 +92,11 @@ public class InternalTextureLoader {
       }
 
       resName = resName + ":" + flipped;
+      AtlasTexture packed = TextureAtlas.get(resName);
+      if (packed != null) {
+         return packed;
+      }
+
       Object cached = hash.get(resName);
       if (cached instanceof TextureImpl) {
          return (TextureImpl)cached;
@@ -108,6 +113,16 @@ public class InternalTextureLoader {
 
       PixmapImageData imageData = new PixmapImageData();
       ByteBuffer textureBuffer = imageData.loadImage(new BufferedInputStream(in), flipped, transparent);
+      if (imageData.getTexWidth() == imageData.getWidth()
+         && imageData.getTexHeight() == imageData.getHeight()
+         && TextureAtlas.eligible(resourceName, imageData.getWidth(), imageData.getHeight(), imageData.getDepth() == 32, transparent)) {
+         AtlasTexture region = TextureAtlas.pack("" + resourceName, resName, imageData.getWidth(), imageData.getHeight(), textureBuffer);
+         if (region != null) {
+            TextureImpl.cachePixels(region, imageData.getBytes());
+            return region;
+         }
+      }
+
       TextureImpl tex = this.upload("" + resourceName, imageData, textureBuffer, filter, filter);
       tex.setCacheName(resName);
       TextureImpl.cachePixels(tex, imageData.getBytes());

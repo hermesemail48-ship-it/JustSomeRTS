@@ -25,6 +25,10 @@ public class RtrGdxGame extends GdxSlickApp {
    private int currentFps;
    private long lastInteractionMs;
    private static final long ACTIVE_HOLD_MS = 2500L;
+   private float baseRenderScale;
+   private boolean phoneFrameRates;
+   /** Extra interface magnification while playing (menus are laid out for exactly 720 rows and keep the base scale). */
+   private float gameUiScale = 1.0F;
 
    /**
     * @param touch enable touch gesture translation (phones/tablets)
@@ -42,6 +46,7 @@ public class RtrGdxGame extends GdxSlickApp {
             Platform.set(new GdxPlatform());
             // Set here, not in the constructor: touching PlayState loads game classes that need the Platform.
             rtr.states.PlayState.touchMode = touch;
+            rtr.gui.states.PlayStateGUIController.touchPanels = touch;
             if (fitToMinimumHeight) {
                // Lighter first-run effects on phones: clouds were ~30% of the main thread, particles fill a lot of
                // pixels. Players can turn them back on in Settings.
@@ -89,16 +94,20 @@ public class RtrGdxGame extends GdxSlickApp {
          int w = Gdx.graphics.getBackBufferWidth();
          int h = Gdx.graphics.getBackBufferHeight();
          float scale = Math.min((float)Math.min(w, h) / MIN_LOGICAL_HEIGHT, (float)Math.max(w, h) / 1280.0F);
-         Display.setRenderScale(Math.max(1.0F, scale));
+         this.baseRenderScale = Math.max(1.0F, scale);
+         this.gameUiScale = Float.parseFloat(System.getProperty("rtr.uiScale", "1"));
+         Display.setRenderScale(this.baseRenderScale);
          // Draw at the logical ~720p size and scale up once, instead of shading every layer at full panel resolution.
          org.newdawn.slick.opengl.renderer.Renderer.gdx().setSceneBufferEnabled(!Boolean.getBoolean("rtr.fullres"));
          // Phones: 30 fps rendering (the simulation still ticks 60x/s) and no back-to-back light-map rebuilds.
-         this.activeFps = Integer.getInteger("rtr.fps", 30);
-         this.idleFps = Math.min(this.activeFps, Integer.getInteger("rtr.idleFps", 20));
-         this.restFps = Math.min(this.idleFps, Integer.getInteger("rtr.restFps", 15));
+         rtr.mobile.ui.PhoneSettings.load();
+         this.phoneFrameRates = true;
+         this.updateFrameRates();
          this.setFps(this.activeFps);
          // 15 fps needs 4 ticks per frame for 60 ticks/s; leave headroom for frame jitter.
          org.newdawn.slick.GameContainer.maxTicksPerFrame = 6;
+         // Pack sprites into shared textures so draws batch (see TextureAtlas).
+         org.newdawn.slick.opengl.TextureAtlas.enabled = !Boolean.getBoolean("rtr.noAtlas");
          rtr.lighting.LightingModule.minFullRebuildIntervalMs = 1000L;
          rtr.weather.CloudModule.densityScale = 0.5F;
       }
@@ -113,8 +122,30 @@ public class RtrGdxGame extends GdxSlickApp {
       }
    }
 
+   /** Applies the phone settings (system properties override them for testing). */
+   private void updateFrameRates() {
+      this.activeFps = Integer.getInteger("rtr.fps", rtr.mobile.ui.PhoneSettings.fps);
+      if (rtr.mobile.ui.PhoneSettings.batterySaver) {
+         this.idleFps = Math.min(this.activeFps, Integer.getInteger("rtr.idleFps", 20));
+         this.restFps = Math.min(this.idleFps, Integer.getInteger("rtr.restFps", 15));
+      } else {
+         this.idleFps = this.activeFps;
+         this.restFps = this.activeFps;
+      }
+
+      org.newdawn.slick.opengl.renderer.GdxGL gl = org.newdawn.slick.opengl.renderer.Renderer.gdx();
+      float res = Float.parseFloat(System.getProperty("rtr.resolution", Float.toString(rtr.mobile.ui.PhoneSettings.resolution)));
+      if (gl.getSceneResolution() != res) {
+         gl.setSceneResolution(res);
+      }
+   }
+
    @Override
    public void render() {
+      if (this.phoneFrameRates) {
+         this.updateFrameRates();
+      }
+
       if (this.activeFps > 0) {
          // Drop the frame rate when nobody is touching the screen: the simulation keeps its 60 ticks/s, only drawing
          // slows down, which is most of the GPU and battery cost.
@@ -132,6 +163,13 @@ public class RtrGdxGame extends GdxSlickApp {
          }
 
          this.setFps(target);
+      }
+
+      if (this.baseRenderScale > 0.0F) {
+         float rs = GameBridge.play() != null ? this.baseRenderScale * this.gameUiScale : this.baseRenderScale;
+         if (rs != Display.getRenderScale()) {
+            Display.setRenderScale(rs);
+         }
       }
 
       super.render();

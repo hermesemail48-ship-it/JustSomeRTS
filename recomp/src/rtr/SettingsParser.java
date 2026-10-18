@@ -171,6 +171,17 @@ public class SettingsParser {
       refreshProfileProperties();
    }
 
+   /** Changes one base setting, saves it and applies it immediately (used by the phone settings sheet). */
+   public static void setBaseValue(String key, String value) {
+      settingsProperties.setProperty(key, value);
+      saveBaseSettings();
+      refreshBaseProperties();
+   }
+
+   public static String getBaseValue(String key) {
+      return settingsProperties.getProperty(key);
+   }
+
    public static void saveBaseSettings() {
       try {
          out = new FileOutputStream(baseSettings);

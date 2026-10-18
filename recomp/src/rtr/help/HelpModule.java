@@ -173,6 +173,11 @@ public class HelpModule extends ModuleBase {
       if (!forcedTips) {
          this.activeTips.add(new TipRandomLoadingTip());
       }
+
+      if (Boolean.getBoolean("rtr.noTips")) {
+         // Automated UI checks: no modal tips.
+         this.activeTips.clear();
+      }
    }
 
    @Override

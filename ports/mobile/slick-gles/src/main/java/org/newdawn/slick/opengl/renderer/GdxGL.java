@@ -77,8 +77,13 @@ public class GdxGL implements SGL {
       + "  gl_PointSize = u_pointSize;\n"
       + "  gl_Position = u_proj * vec4(a_position.xy, 0.0, 1.0);\n"
       + "}\n";
+   // highp: texture coordinates into large sheets (and atlas pages) need more than fp16 precision.
    private static final String FRAGMENT_SHADER = "#ifdef GL_ES\n"
+      + "#ifdef GL_FRAGMENT_PRECISION_HIGH\n"
+      + "precision highp float;\n"
+      + "#else\n"
       + "precision mediump float;\n"
+      + "#endif\n"
       + "#endif\n"
       + "uniform sampler2D u_texture;\n"
       + "uniform vec4 u_plane0;\n"
@@ -96,10 +101,61 @@ public class GdxGL implements SGL {
       + "  if (u_planeOn.y > 0.5 && dot(u_plane1, p) < 0.0) discard;\n"
       + "  if (u_planeOn.z > 0.5 && dot(u_plane2, p) < 0.0) discard;\n"
       + "  if (u_planeOn.w > 0.5 && dot(u_plane3, p) < 0.0) discard;\n"
-      + "  vec4 c = texture2D(u_texture, v_uv) * v_color;\n"
+      // u < -1.5 marks a vertex drawn with GL_TEXTURE_2D off, so shapes and sprites can share one batch.
+      + "  vec4 c = (v_uv.x < -1.5 ? vec4(1.0) : texture2D(u_texture, v_uv)) * v_color;\n"
       + "  c.rgb = min(c.rgb + v_sec.rgb * v_sec.a, vec3(1.0));\n"
       + "  gl_FragColor = c;\n"
       + "}\n";
+
+   private static final float UNTEXTURED_U = -2.0F;
+   private static final boolean TEX_STATS = Boolean.getBoolean("rtr.texStats");
+   private final Map<Integer, int[]> switchCounts = new HashMap<Integer, int[]>();
+   private long texStatsAt;
+
+   /** Debug (-Drtr.texStats): which textures end batches most, every 5 s. */
+   private void dumpTexStats() {
+      long now = System.currentTimeMillis();
+      if (now - this.texStatsAt < 5000L) {
+         return;
+      }
+
+      this.texStatsAt = now;
+      java.util.ArrayList<Map.Entry<Integer, int[]>> list = new java.util.ArrayList<Map.Entry<Integer, int[]>>(this.switchCounts.entrySet());
+      java.util.Collections.sort(list, new java.util.Comparator<Map.Entry<Integer, int[]>>() {
+         @Override
+         public int compare(Map.Entry<Integer, int[]> a, Map.Entry<Integer, int[]> b) {
+            return b.getValue()[0] - a.getValue()[0];
+         }
+      });
+      StringBuilder sb = new StringBuilder("[tex] batch-ending textures per 5 s:");
+
+      for (int i = 0; i < Math.min(14, list.size()); i++) {
+         int[] size = this.textureSizes.get(list.get(i).getKey());
+         sb.append(' ').append(list.get(i).getKey()).append(size == null ? "" : "(" + size[0] + "x" + size[1] + ")").append('=').append(list.get(i).getValue()[0]);
+      }
+
+      System.out.println(sb);
+      this.switchCounts.clear();
+   }
+   /** Whether the pending batch has textured vertices (only those care which texture is bound). */
+   private boolean pendingTextured;
+   /** Last state actually sent to GL by flush(); invalid after anything else may have touched GL state. */
+   private boolean glStateValid;
+   private boolean appliedBlend;
+   private int appliedSrc;
+   private int appliedDst;
+   private final boolean[] appliedMask = new boolean[4];
+   private boolean appliedScissor;
+   private final int[] appliedScissorBox = new int[4];
+   private final float[] appliedProj = new float[16];
+   private final float[][] appliedPlanes = new float[4][4];
+   private final boolean[] appliedPlaneOn = new boolean[4];
+   private float appliedPointSize = -1.0F;
+
+   /** Forget what flush() last sent to GL (call after code outside this class may have changed GL state). */
+   public void invalidateGlState() {
+      this.glStateValid = false;
+   }
 
    private ShaderProgram shader;
    private Mesh mesh;
@@ -237,6 +293,7 @@ public class GdxGL implements SGL {
 
    public State saveState() {
       this.flush();
+      this.glStateValid = false;
       State s = new State();
       s.modelView.set(this.modelView);
       s.projection.set(this.projection);
@@ -282,6 +339,7 @@ public class GdxGL implements SGL {
 
    public void restoreState(State s) {
       this.flush();
+      this.glStateValid = false;
       this.modelView.set(s.modelView);
       this.projection.set(s.projection);
       this.stack.clear();
@@ -314,6 +372,7 @@ public class GdxGL implements SGL {
    /** Resets state for drawing into a fresh off-screen target of the given pixel size (Slick's FBOGraphics.initGL). */
    public void beginOffscreen(int framebuffer, int width, int height) {
       this.flush();
+      this.glStateValid = false;
       Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, framebuffer);
       Gdx.gl.glViewport(0, 0, width, height);
       this.targetScale = 1.0F;
@@ -360,32 +419,81 @@ public class GdxGL implements SGL {
 
       this.ensureInit();
       GL20 gl = Gdx.gl;
-      if (this.blend) {
-         gl.glEnable(GL20.GL_BLEND);
-         gl.glBlendFunc(this.srcBlend, this.dstBlend);
-      } else {
-         gl.glDisable(GL20.GL_BLEND);
+      // Only send what changed since the last draw: on iOS every GL call crosses the Java/native bridge.
+      boolean full = !this.glStateValid;
+      if (full || this.blend != this.appliedBlend) {
+         if (this.blend) {
+            gl.glEnable(GL20.GL_BLEND);
+         } else {
+            gl.glDisable(GL20.GL_BLEND);
+         }
+
+         this.appliedBlend = this.blend;
       }
 
-      gl.glColorMask(this.colorMask[0], this.colorMask[1], this.colorMask[2], this.colorMask[3]);
-      this.applyScissor();
-      gl.glActiveTexture(GL20.GL_TEXTURE0);
-      gl.glBindTexture(GL20.GL_TEXTURE_2D, this.texture2D && this.boundTexture != 0 ? this.boundTexture : this.whiteTexture);
+      if (this.blend && (full || this.srcBlend != this.appliedSrc || this.dstBlend != this.appliedDst)) {
+         gl.glBlendFunc(this.srcBlend, this.dstBlend);
+         this.appliedSrc = this.srcBlend;
+         this.appliedDst = this.dstBlend;
+      }
+
+      boolean[] cm = this.colorMask;
+      boolean[] am = this.appliedMask;
+      if (full || cm[0] != am[0] || cm[1] != am[1] || cm[2] != am[2] || cm[3] != am[3]) {
+         gl.glColorMask(cm[0], cm[1], cm[2], cm[3]);
+         System.arraycopy(cm, 0, am, 0, 4);
+      }
+
+      this.applyScissor(full);
+      if (full) {
+         gl.glActiveTexture(GL20.GL_TEXTURE0);
+      }
+
+      // The real binding may have been changed by texture uploads, so always bind.
+      gl.glBindTexture(GL20.GL_TEXTURE_2D, this.boundTexture != 0 ? this.boundTexture : this.whiteTexture);
       if (this.batchType == BATCH_LINES) {
          gl.glLineWidth(Math.max(1.0F, this.lineWidth * this.targetScale));
       }
 
-      this.shader.bind();
-      this.shader.setUniformMatrix("u_proj", this.projection);
-      this.shader.setUniformi("u_texture", 0);
-      this.shader.setUniformf("u_pointSize", Math.max(1.0F, this.pointSize * this.targetScale));
-      this.shader.setUniformf("u_plane0", this.planes[0][0], this.planes[0][1], this.planes[0][2], this.planes[0][3]);
-      this.shader.setUniformf("u_plane1", this.planes[1][0], this.planes[1][1], this.planes[1][2], this.planes[1][3]);
-      this.shader.setUniformf("u_plane2", this.planes[2][0], this.planes[2][1], this.planes[2][2], this.planes[2][3]);
-      this.shader.setUniformf("u_plane3", this.planes[3][0], this.planes[3][1], this.planes[3][2], this.planes[3][3]);
-      this.shader.setUniformf(
-         "u_planeOn", this.planeOn[0] ? 1.0F : 0.0F, this.planeOn[1] ? 1.0F : 0.0F, this.planeOn[2] ? 1.0F : 0.0F, this.planeOn[3] ? 1.0F : 0.0F
-      );
+      if (full) {
+         this.shader.bind();
+         this.shader.setUniformi("u_texture", 0);
+      }
+
+      float[] pv = this.projection.val;
+      if (full || !java.util.Arrays.equals(pv, this.appliedProj)) {
+         this.shader.setUniformMatrix("u_proj", this.projection);
+         System.arraycopy(pv, 0, this.appliedProj, 0, 16);
+      }
+
+      float ps = Math.max(1.0F, this.pointSize * this.targetScale);
+      if (full || ps != this.appliedPointSize) {
+         this.shader.setUniformf("u_pointSize", ps);
+         this.appliedPointSize = ps;
+      }
+
+      boolean planesChanged = full;
+
+      for (int i = 0; i < 4; i++) {
+         if (this.planeOn[i] != this.appliedPlaneOn[i]) {
+            planesChanged = true;
+         }
+
+         if (this.planeOn[i] && (full || !java.util.Arrays.equals(this.planes[i], this.appliedPlanes[i]))) {
+            this.shader.setUniformf(PLANE_UNIFORMS[i], this.planes[i][0], this.planes[i][1], this.planes[i][2], this.planes[i][3]);
+            System.arraycopy(this.planes[i], 0, this.appliedPlanes[i], 0, 4);
+         }
+      }
+
+      if (planesChanged) {
+         this.shader.setUniformf(
+            "u_planeOn", this.planeOn[0] ? 1.0F : 0.0F, this.planeOn[1] ? 1.0F : 0.0F, this.planeOn[2] ? 1.0F : 0.0F, this.planeOn[3] ? 1.0F : 0.0F
+         );
+         System.arraycopy(this.planeOn, 0, this.appliedPlaneOn, 0, 4);
+      }
+
+      this.glStateValid = true;
+      this.pendingTextured = false;
       rtr.compat.PerfStats.drawCalls++;
       rtr.compat.PerfStats.vertices += this.vertexCount;
       this.mesh.setVertices(this.vertices, 0, this.vertexCount * FLOATS_PER_VERTEX);
@@ -393,15 +501,34 @@ public class GdxGL implements SGL {
       this.vertexCount = 0;
    }
 
-   private void applyScissor() {
+   private static final String[] PLANE_UNIFORMS = new String[]{"u_plane0", "u_plane1", "u_plane2", "u_plane3"};
+
+   private void applyScissor(boolean full) {
+      if (full || this.scissor != this.appliedScissor) {
+         if (this.scissor) {
+            Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+         } else {
+            Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+         }
+
+         this.appliedScissor = this.scissor;
+         full = true;
+      }
+
       if (this.scissor) {
-         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
          float s = this.targetScale;
-         Gdx.gl.glScissor(
-            Math.round(this.scissorBox[0] * s), Math.round(this.scissorBox[1] * s), Math.round(this.scissorBox[2] * s), Math.round(this.scissorBox[3] * s)
-         );
-      } else {
-         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+         int x = Math.round(this.scissorBox[0] * s);
+         int y = Math.round(this.scissorBox[1] * s);
+         int w = Math.round(this.scissorBox[2] * s);
+         int h = Math.round(this.scissorBox[3] * s);
+         int[] a = this.appliedScissorBox;
+         if (full || a[0] != x || a[1] != y || a[2] != w || a[3] != h) {
+            Gdx.gl.glScissor(x, y, w, h);
+            a[0] = x;
+            a[1] = y;
+            a[2] = w;
+            a[3] = h;
+         }
       }
    }
 
@@ -421,7 +548,13 @@ public class GdxGL implements SGL {
       this.vertices[i] = x;
       this.vertices[i + 1] = y;
       this.vertices[i + 2] = c;
-      this.vertices[i + 3] = tu;
+      if (this.texture2D) {
+         this.vertices[i + 3] = tu;
+         this.pendingTextured = true;
+      } else {
+         this.vertices[i + 3] = UNTEXTURED_U;
+      }
+
       this.vertices[i + 4] = tv;
       this.vertices[i + 5] = s;
       this.vertexCount++;
@@ -707,6 +840,20 @@ public class GdxGL implements SGL {
       this.sceneBufferEnabled = enabled;
    }
 
+   private float sceneResolution = 1.0F;
+
+   /**
+    * Scene buffer size relative to the logical screen (1 = one texel per logical pixel). Below 1 the game draws fewer
+    * pixels and is scaled up more, trading sharpness for GPU time and battery.
+    */
+   public void setSceneResolution(float scale) {
+      this.sceneResolution = Math.max(0.5F, Math.min(1.0F, scale));
+   }
+
+   public float getSceneResolution() {
+      return this.sceneResolution;
+   }
+
    public boolean isSceneBufferEnabled() {
       return this.sceneBufferEnabled;
    }
@@ -714,6 +861,12 @@ public class GdxGL implements SGL {
    /** Called at the start of every frame: remembers the platform's framebuffer and binds the game's target. */
    public void beginScene() {
       this.ensureInit();
+      if (TEX_STATS) {
+         this.dumpTexStats();
+      }
+
+      // The platform and the phone overlay drew with their own GL state since the last frame.
+      this.glStateValid = false;
       this.captureDefaultFramebuffer();
       this.bindMainTarget();
    }
@@ -736,13 +889,15 @@ public class GdxGL implements SGL {
       int lw = rtr.compat.lwjgl.opengl.Display.getWidth();
       int lh = rtr.compat.lwjgl.opengl.Display.getHeight();
       if (this.sceneBufferEnabled) {
-         if (this.sceneFbo == 0 || this.sceneWidth != lw || this.sceneHeight != lh) {
-            this.createSceneBuffer(lw, lh);
+         int sw = Math.max(1, Math.round(lw * this.sceneResolution));
+         int sh = Math.max(1, Math.round(lh * this.sceneResolution));
+         if (this.sceneFbo == 0 || this.sceneWidth != sw || this.sceneHeight != sh) {
+            this.createSceneBuffer(sw, sh);
          }
 
          Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, this.sceneFbo);
-         Gdx.gl.glViewport(0, 0, lw, lh);
-         this.targetScale = 1.0F;
+         Gdx.gl.glViewport(0, 0, sw, sh);
+         this.targetScale = (float)sw / lw;
       } else {
          Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, this.defaultFramebuffer);
          Gdx.gl.glViewport(0, 0, Gdx.graphics.getBackBufferWidth(), Gdx.graphics.getBackBufferHeight());
@@ -751,6 +906,7 @@ public class GdxGL implements SGL {
    }
 
    private void createSceneBuffer(int w, int h) {
+      this.glStateValid = false;
       if (this.sceneFbo != 0) {
          Gdx.gl.glDeleteFramebuffer(this.sceneFbo);
          Gdx.gl.glDeleteTexture(this.sceneTexture);
@@ -797,6 +953,7 @@ public class GdxGL implements SGL {
    /** Called at the end of every frame: scales the scene buffer onto the screen (no-op when disabled). */
    public void endScene() {
       this.flush();
+      this.glStateValid = false;
       if (!this.sceneBufferEnabled || this.sceneFbo == 0) {
          return;
       }
@@ -888,10 +1045,8 @@ public class GdxGL implements SGL {
             }
             break;
          case GL_TEXTURE_2D:
-            if (this.texture2D != on) {
-               this.flush();
-               this.texture2D = on;
-            }
+            // No flush: untextured vertices are marked per vertex (see UNTEXTURED_U).
+            this.texture2D = on;
             break;
          case GL_SCISSOR_TEST:
             if (this.scissor != on) {
@@ -945,17 +1100,25 @@ public class GdxGL implements SGL {
    public void glClipPlane(int plane, DoubleBuffer equation) {
       int i = plane - GL_CLIP_PLANE0;
       if (i >= 0 && i < 4) {
-         this.flush();
          this.tmp.set(this.modelView).inv();
          float[] m = this.tmp.val;
          float pa = (float)equation.get(0);
          float pb = (float)equation.get(1);
          float pc = (float)equation.get(2);
          float pd = (float)equation.get(3);
-         this.planes[i][0] = pa * m[0] + pb * m[1] + pc * m[2] + pd * m[3];
-         this.planes[i][1] = pa * m[4] + pb * m[5] + pc * m[6] + pd * m[7];
-         this.planes[i][2] = pa * m[8] + pb * m[9] + pc * m[10] + pd * m[11];
-         this.planes[i][3] = pa * m[12] + pb * m[13] + pc * m[14] + pd * m[15];
+         float p0 = pa * m[0] + pb * m[1] + pc * m[2] + pd * m[3];
+         float p1 = pa * m[4] + pb * m[5] + pc * m[6] + pd * m[7];
+         float p2 = pa * m[8] + pb * m[9] + pc * m[10] + pd * m[11];
+         float p3 = pa * m[12] + pb * m[13] + pc * m[14] + pd * m[15];
+         float[] cur = this.planes[i];
+         if (cur[0] != p0 || cur[1] != p1 || cur[2] != p2 || cur[3] != p3) {
+            // Only a changed plane ends the batch (the game re-sets the same world clip for every widget).
+            this.flush();
+            cur[0] = p0;
+            cur[1] = p1;
+            cur[2] = p2;
+            cur[3] = p3;
+         }
       }
    }
 
@@ -992,8 +1155,9 @@ public class GdxGL implements SGL {
    @Override
    public void glClear(int mask) {
       this.flush();
+      this.glStateValid = false;
       Gdx.gl.glColorMask(this.colorMask[0], this.colorMask[1], this.colorMask[2], this.colorMask[3]);
-      this.applyScissor();
+      this.applyScissor(true);
       Gdx.gl.glClearColor(this.clearColor[0], this.clearColor[1], this.clearColor[2], this.clearColor[3]);
       Gdx.gl.glClear(mask & GL20.GL_COLOR_BUFFER_BIT);
    }
@@ -1079,9 +1243,21 @@ public class GdxGL implements SGL {
    @Override
    public void glBindTexture(int target, int id) {
       if (id != this.boundTexture) {
-         this.flush();
+         if (this.pendingTextured) {
+            if (TEX_STATS) {
+               int[] c = this.switchCounts.get(this.boundTexture);
+               if (c == null) {
+                  this.switchCounts.put(this.boundTexture, c = new int[1]);
+               }
+
+               c[0]++;
+            }
+
+            this.flush();
+            rtr.compat.PerfStats.textureSwitches++;
+         }
+
          this.boundTexture = id;
-         rtr.compat.PerfStats.textureSwitches++;
       }
 
       Gdx.gl.glBindTexture(GL20.GL_TEXTURE_2D, id);
