@@ -18,6 +18,7 @@ public class PixmapImageData implements LoadableImageData {
    private int texHeight;
    private boolean edging = true;
    private ByteBuffer data;
+   private byte[] bytes;
 
    @Override
    public void configureEdging(boolean edging) {
@@ -62,8 +63,10 @@ public class PixmapImageData implements LoadableImageData {
       try {
          this.width = pixmap.getWidth();
          this.height = pixmap.getHeight();
-         this.texWidth = InternalTextureLoader.get2Fold(this.width);
-         this.texHeight = InternalTextureLoader.get2Fold(this.height);
+         // GLES 2 (and every desktop GL the port runs on) supports non-power-of-two textures with clamp-to-edge and
+         // no mipmaps, which is all Slick uses; exact sizes save ~30% of texture memory versus padding.
+         this.texWidth = InternalTextureLoader.npotTextures ? this.width : InternalTextureLoader.get2Fold(this.width);
+         this.texHeight = InternalTextureLoader.npotTextures ? this.height : InternalTextureLoader.get2Fold(this.height);
          ByteBuffer src = pixmap.getPixels();
          byte[] out = new byte[this.texWidth * this.texHeight * 4];
          int rowBytes = this.width * 4;
@@ -100,6 +103,7 @@ public class PixmapImageData implements LoadableImageData {
             }
          }
 
+         this.bytes = out;
          this.data = BufferUtils.createByteBuffer(out.length);
          this.data.put(out);
          this.data.flip();
@@ -146,6 +150,11 @@ public class PixmapImageData implements LoadableImageData {
    @Override
    public int getTexHeight() {
       return this.texHeight;
+   }
+
+   /** The same pixels as {@link #getImageBufferData()}, as a heap array. */
+   public byte[] getBytes() {
+      return this.bytes;
    }
 
    @Override

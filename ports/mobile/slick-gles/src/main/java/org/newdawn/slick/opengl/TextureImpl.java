@@ -143,6 +143,7 @@ public class TextureImpl implements Texture {
       texBuf.put(this.textureID);
       ((Buffer)texBuf).flip();
       GL.glDeleteTextures(texBuf);
+      uncachePixels(this);
       if (lastBind == this) {
          bindNone();
       }
@@ -169,14 +170,56 @@ public class TextureImpl implements Texture {
       return temp.asIntBuffer();
    }
 
+   /**
+    * Recently used texture pixels, shared by every Image cut from the same texture. The game reads sprite sheets
+    * pixel by pixel when loading tilesets; without this each sub-image forced a full GPU readback (a stall on phones).
+    */
+   private static final long PIXEL_CACHE_BUDGET = 64L << 20;
+   private static final java.util.LinkedHashMap<TextureImpl, byte[]> pixelCache = new java.util.LinkedHashMap<TextureImpl, byte[]>(16, 0.75F, true);
+   private static long pixelCacheBytes;
+
+   /** Seeds the cache with pixels already decoded on the CPU (RGBA or RGB rows, texture-sized). */
+   public static void cachePixels(TextureImpl tex, byte[] data) {
+      synchronized (pixelCache) {
+         byte[] old = pixelCache.put(tex, data);
+         pixelCacheBytes += data.length - (old == null ? 0 : old.length);
+         java.util.Iterator<java.util.Map.Entry<TextureImpl, byte[]>> it = pixelCache.entrySet().iterator();
+
+         while (pixelCacheBytes > PIXEL_CACHE_BUDGET && pixelCache.size() > 1 && it.hasNext()) {
+            java.util.Map.Entry<TextureImpl, byte[]> e = it.next();
+            if (e.getKey() != tex) {
+               pixelCacheBytes -= e.getValue().length;
+               it.remove();
+            }
+         }
+      }
+   }
+
+   private static void uncachePixels(TextureImpl tex) {
+      synchronized (pixelCache) {
+         byte[] old = pixelCache.remove(tex);
+         if (old != null) {
+            pixelCacheBytes -= old.length;
+         }
+      }
+   }
+
    @Override
    public byte[] getTextureData() {
+      synchronized (pixelCache) {
+         byte[] cached = pixelCache.get(this);
+         if (cached != null) {
+            return cached;
+         }
+      }
+
       ByteBuffer buffer = BufferUtils.createByteBuffer((this.hasAlpha() ? 4 : 3) * this.texWidth * this.texHeight);
       this.bind();
       GL.glGetTexImage(3553, 0, this.hasAlpha() ? 6408 : 6407, 5121, buffer);
       byte[] data = new byte[buffer.limit()];
       buffer.get(data);
       ((Buffer)buffer).clear();
+      cachePixels(this, data);
       return data;
    }
 

@@ -22,6 +22,8 @@ public class InternalTextureLoader {
    private final HashMap<String, Object> texturesNearest = new HashMap<String, Object>();
    private int dstPixelFormat = 6408;
    private boolean holdTextureData;
+   /** Upload decoded images at their exact size instead of padding to powers of two. */
+   public static boolean npotTextures = true;
 
    public static InternalTextureLoader get() {
       return loader;
@@ -108,6 +110,7 @@ public class InternalTextureLoader {
       ByteBuffer textureBuffer = imageData.loadImage(new BufferedInputStream(in), flipped, transparent);
       TextureImpl tex = this.upload("" + resourceName, imageData, textureBuffer, filter, filter);
       tex.setCacheName(resName);
+      TextureImpl.cachePixels(tex, imageData.getBytes());
       hash.put(resName, this.holdTextureData ? tex : new SoftReference<TextureImpl>(tex));
       return tex;
    }
@@ -154,7 +157,7 @@ public class InternalTextureLoader {
       GL.glTexParameteri(target, 10240, magFilter);
       GL.glTexParameteri(target, 10242, 33071);
       GL.glTexParameteri(target, 10243, 33071);
-      GL.glTexImage2D(target, 0, this.dstPixelFormat, get2Fold(width), get2Fold(height), 0, srcPixelFormat, 5121, pixels);
+      GL.glTexImage2D(target, 0, this.dstPixelFormat, data.getTexWidth(), data.getTexHeight(), 0, srcPixelFormat, 5121, pixels);
       return texture;
    }
 

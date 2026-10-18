@@ -1,5 +1,6 @@
 package rtr;
 
+import rtr.utilities.IntKeyMap;
 import java.util.HashMap;
 import org.newdawn.slick.Color;
 import org.newdawn.slick.Graphics;
@@ -15,7 +16,7 @@ public class ShadowModule extends ModuleBase {
    private Color shadowColor = new Color(0.0F, 0.0F, 0.0F, 0.4F);
    private HashMap<Integer, Color> shadowColorMaps = new HashMap<>();
    private Image shadowFBO;
-   private HashMap<Integer, byte[][][]> shadowMasks;
+   private IntKeyMap<byte[][][]> shadowMasks;
    private Image[][] shadowTiles;
    private SpriteSheet shadowSheet;
    private Color[][] shadowMap;

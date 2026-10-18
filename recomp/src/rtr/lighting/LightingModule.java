@@ -617,7 +617,20 @@ public class LightingModule extends ModuleBase {
       }
    }
 
+   /**
+    * Minimum time between full light-map rebuilds. 0 (desktop default) restarts a rebuild as soon as the previous one
+    * finishes, which keeps one CPU core busy forever; mobile builds raise it (the result fades in gradually anyway).
+    */
+   public static long minFullRebuildIntervalMs = 0L;
+   private long lastFullRebuildMs;
+
    private void updateLightMapFinalize() {
+      long now = System.currentTimeMillis();
+      if (now - this.lastFullRebuildMs < minFullRebuildIntervalMs) {
+         return;
+      }
+
+      this.lastFullRebuildMs = now;
       this.lightUpdateStep = LightingModule.LightUpdateStep.INIT;
 
       for (int x = 0; x < this.lightValueMapNew.length; x++) {

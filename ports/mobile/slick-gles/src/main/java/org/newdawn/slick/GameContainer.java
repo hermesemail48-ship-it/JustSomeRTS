@@ -282,6 +282,24 @@ public abstract class GameContainer implements GUIContext {
       this.maximumLogicInterval = interval;
    }
 
+   /**
+    * Simulation rate for the libGDX build. Rise to Ruins advances one fixed step per update call (it ignores delta),
+    * so it is designed around 60 updates/s; tying updates to frames made the whole game run in slow motion when the
+    * frame rate dropped. With a fixed rate, rendering can run at 30 fps while the simulation keeps its speed.
+    * 0 keeps Slick's original one-update-per-frame behaviour.
+    */
+   public static float fixedTickRate = 0.0F;
+   /** Upper bound on catch-up ticks per frame, so a slow device degrades to slow motion instead of freezing. */
+   public static int maxTicksPerFrame = 4;
+   private double tickAccumulatorMs;
+
+   private void timedUpdate(int delta) throws SlickException {
+      long t0 = System.nanoTime();
+      this.game.update(this, delta);
+      rtr.compat.PerfStats.updateNanos += System.nanoTime() - t0;
+      rtr.compat.PerfStats.updatesPerFrame++;
+   }
+
    protected void updateAndRender(int delta) throws SlickException {
       if (this.smoothDeltas && this.getFPS() != 0) {
          delta = 1000 / this.getFPS();
@@ -289,7 +307,26 @@ public abstract class GameContainer implements GUIContext {
 
       this.input.poll(this.width, this.height);
       Music.poll(delta);
-      if (!this.paused) {
+      if (!this.paused && fixedTickRate > 0.0F) {
+         double tickMs = 1000.0 / fixedTickRate;
+         this.tickAccumulatorMs += delta;
+         int ticks = (int)(this.tickAccumulatorMs / tickMs);
+         if (ticks > maxTicksPerFrame) {
+            ticks = maxTicksPerFrame;
+            this.tickAccumulatorMs = 0.0;
+         } else {
+            this.tickAccumulatorMs -= ticks * tickMs;
+         }
+
+         try {
+            for (int i = 0; i < ticks; i++) {
+               this.timedUpdate((int)Math.round(tickMs));
+            }
+         } catch (Throwable var7) {
+            Log.error(var7);
+            throw new SlickException("Game.update() failure - check the game code.");
+         }
+      } else if (!this.paused) {
          this.storedDelta += delta;
          if (this.storedDelta >= this.minimumLogicInterval) {
             try {
@@ -297,18 +334,18 @@ public abstract class GameContainer implements GUIContext {
                   long cycles = this.storedDelta / this.maximumLogicInterval;
 
                   for (int i = 0; i < cycles; i++) {
-                     this.game.update(this, (int)this.maximumLogicInterval);
+                     this.timedUpdate((int)this.maximumLogicInterval);
                   }
 
                   int remainder = (int)(this.storedDelta % this.maximumLogicInterval);
                   if (remainder > this.minimumLogicInterval) {
-                     this.game.update(this, (int)(remainder % this.maximumLogicInterval));
+                     this.timedUpdate((int)(remainder % this.maximumLogicInterval));
                      this.storedDelta = 0L;
                   } else {
                      this.storedDelta = remainder;
                   }
                } else {
-                  this.game.update(this, (int)this.storedDelta);
+                  this.timedUpdate((int)this.storedDelta);
                   this.storedDelta = 0L;
                }
             } catch (Throwable var6) {
@@ -317,7 +354,7 @@ public abstract class GameContainer implements GUIContext {
             }
          }
       } else {
-         this.game.update(this, 0);
+         this.timedUpdate(0);
       }
 
       if (this.hasFocus() || this.getAlwaysRender()) {
@@ -332,7 +369,9 @@ public abstract class GameContainer implements GUIContext {
          this.graphics.setAntiAlias(false);
 
          try {
+            long t0 = System.nanoTime();
             this.game.render(this, this.graphics);
+            rtr.compat.PerfStats.renderNanos += System.nanoTime() - t0;
          } catch (Throwable var5) {
             Log.error(var5);
             throw new SlickException("Game.render() failure - check the game code.");

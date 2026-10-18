@@ -123,6 +123,12 @@ public class CloudModule extends ModuleBase {
    protected void loadWorldSaveData() throws SlickException {
    }
 
+   /**
+    * Scales how many cloud clusters exist (1 = original). Every cluster is hundreds of small cloud tiles updated each
+    * tick and drawn into three full-screen buffers, so phones use a lower density.
+    */
+   public static float densityScale = 1.0F;
+
    public void update() throws SlickException {
       if (!SettingsParser.getClouds()) {
          this.cloudClusters.clear();
@@ -143,6 +149,7 @@ public class CloudModule extends ModuleBase {
             maximumClustersFinal = 90;
          }
 
+         maximumClustersFinal = Math.max(1, Math.round(maximumClustersFinal * densityScale));
          if (this.cloudClusters.size() < maximumClustersFinal) {
             this.addNewCluster(Utilities.randomInt(4096), Utilities.randomInt(4096));
          }

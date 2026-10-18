@@ -1,5 +1,6 @@
 package rtr.particles;
 
+import rtr.utilities.IntKeyMap;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
@@ -62,7 +63,7 @@ public class ParticleModule extends ModuleBase {
    private ArrayList<ParticleEmitter>[][] particleEmittersMap;
    private byte[][] flaggedEmitterUpdateMap;
    private ArrayList<ParticleEmitter> particleEmittersWorldMap = new ArrayList<>();
-   private HashMap<Integer, byte[][]> emitterMasks;
+   private IntKeyMap<byte[][]> emitterMasks;
    private int tileGlobalX;
    private int tileGlobalY;
    private ParticleAnimationLoader particleAnimationLoader;

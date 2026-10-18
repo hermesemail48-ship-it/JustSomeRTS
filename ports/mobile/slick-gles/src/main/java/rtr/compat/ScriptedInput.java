@@ -20,6 +20,8 @@ import rtr.compat.lwjgl.opengl.Display;
  * drag B X1 Y1 X2 Y2    hold button B while moving
  * wheel N               mouse-wheel notches (+ zooms in)
  * key NAME              press and release an LWJGL key, e.g. key ESCAPE
+ * tap X Y               a finger tap, through the touch translator (game-pixel coordinates)
+ * tdrag X1 Y1 X2 Y2     a one-finger drag, through the touch translator
  * type TEXT             type characters like a phone keyboard (character events without key codes)
  * shot PATH             save a screenshot
  * exit
@@ -49,6 +51,15 @@ public class ScriptedInput {
       } finally {
          r.close();
       }
+   }
+
+   /** Game pixels to libGDX window units (what touch events use). */
+   private static int wx(String v) {
+      return Math.round(Integer.parseInt(v) * (float)com.badlogic.gdx.Gdx.graphics.getWidth() / Display.getWidth());
+   }
+
+   private static int wy(String v) {
+      return Math.round(Integer.parseInt(v) * (float)com.badlogic.gdx.Gdx.graphics.getHeight() / Display.getHeight());
    }
 
    private static int y(String v) {
@@ -111,6 +122,21 @@ public class ScriptedInput {
          final int k = Keyboard.getKeyIndex(c[1]);
          Keyboard.push(k, (char)0, true, false);
          this.at(now + 2L * STEP_MS, () -> Keyboard.push(k, (char)0, false, false));
+      } else if (cmd.equals("tap") || cmd.equals("tdrag")) {
+         final GdxInputBridge in = this.app.getInput();
+         final int x1 = wx(c[1]);
+         final int y1 = wy(c[2]);
+         final int x2 = cmd.equals("tdrag") ? wx(c[3]) : x1;
+         final int y2 = cmd.equals("tdrag") ? wy(c[4]) : y1;
+         in.touchDown(x1, y1, 0, 0);
+
+         for (int i = 1; i <= 10 && cmd.equals("tdrag"); i++) {
+            final int xi = x1 + (x2 - x1) * i / 10;
+            final int yi = y1 + (y2 - y1) * i / 10;
+            this.at(now + i * STEP_MS, () -> in.touchDragged(xi, yi, 0));
+         }
+
+         this.at(now + (cmd.equals("tdrag") ? 12L : 2L) * STEP_MS, () -> in.touchUp(x2, y2, 0, 0));
       } else if (cmd.equals("type")) {
          for (int i = 1; i < c.length; i++) {
             String word = (i > 1 ? " " : "") + c[i];
@@ -120,10 +146,12 @@ public class ScriptedInput {
                Keyboard.push(Keyboard.KEY_NONE, word.charAt(j), false, false);
             }
          }
+      } else if (cmd.equals("sceneshot")) {
+         org.newdawn.slick.opengl.renderer.Renderer.gdx().dumpSceneBuffer(c[1]);
       } else if (cmd.equals("shot")) {
-         this.app.saveScreenshot(c[1]);
+         this.app.requestScreenshot(c[1]);
       } else if (cmd.equals("exit")) {
-         System.exit(0);
+         this.app.requestExit();
       } else {
          System.out.println("[script] unknown command " + cmd);
       }

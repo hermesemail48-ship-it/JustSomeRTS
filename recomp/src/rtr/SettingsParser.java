@@ -104,6 +104,9 @@ public class SettingsParser {
    private static InputStream in;
    private static FileOutputStream out;
 
+   /** Settings a port applies once over the player's base settings (null on desktop). */
+   public static Properties platformDefaults;
+
    public static void loadBaseSettings() {
       if (!profilesFolder.exists()) {
          profilesFolder.mkdir();
@@ -310,6 +313,12 @@ public class SettingsParser {
          settingsProperties = new Properties();
          settingsProperties.setProperty("version", Game.getSettingsVersion());
          System.out.println("Base settings file no longer valid, resetting!");
+      }
+
+      if (platformDefaults != null && !settingsProperties.containsKey("platformDefaultsApplied")) {
+         // Applied once (e.g. lighter effects on phones); the player can change them in Settings afterwards.
+         settingsProperties.putAll(platformDefaults);
+         settingsProperties.setProperty("platformDefaultsApplied", "true");
       }
 
       if (!settingsProperties.containsKey("fullScreen")) {

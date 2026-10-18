@@ -5,14 +5,16 @@ import java.util.ArrayDeque;
 import rtr.compat.GdxInputBridge;
 
 /**
- * Maps touch gestures onto the mouse the game expects, without changing game code:
+ * Maps touch gestures onto the mouse the game expects:
  * <ul>
  *   <li>tap: left click (the press is delayed a frame so hover-driven GUI code sees the pointer first)</li>
- *   <li>one-finger drag: left drag (zoning, brushes, placement)</li>
+ *   <li>one-finger drag: left drag (zoning, brushes, walls)</li>
  *   <li>long press: right click (cancel / deselect)</li>
  *   <li>two-finger drag: right-button drag, which pans the map</li>
  *   <li>pinch: mouse-wheel notches, which zoom</li>
  * </ul>
+ * While a building is being placed, touches on the map only aim the ghost (no click); the building is placed with
+ * the on-screen Build button ({@link MobileHud}). Touches on the game's own panels still click normally.
  */
 public class TouchControls implements GdxInputBridge.TouchTranslator {
    private static final long LONG_PRESS_MS = 450L;
@@ -22,11 +24,14 @@ public class TouchControls implements GdxInputBridge.TouchTranslator {
       IDLE,
       PENDING,
       LEFT_DRAG,
+      AIM,
+      HUD,
       TWO_FINGER,
       WAIT_RELEASE
    }
 
    private Mode mode = Mode.IDLE;
+   private final MobileHud hud;
    private final int[] px = new int[2];
    private final int[] py = new int[2];
    private final boolean[] down = new boolean[2];
@@ -36,7 +41,19 @@ public class TouchControls implements GdxInputBridge.TouchTranslator {
    private float pinchStart;
    private int wheelSteps;
    private int frame;
+   private MobileHud.Button hudButton;
+   /** Where the building ghost was last aimed (window units). */
+   private int aimX = -1;
+   private int aimY = -1;
+   /** Ghost position when the current aiming touch started (drags move it relative to the finger). */
+   private int aimBaseX;
+   private int aimBaseY;
+   private boolean aimMoved;
    private final ArrayDeque<int[]> scheduled = new ArrayDeque<int[]>();
+
+   public TouchControls(MobileHud hud) {
+      this.hud = hud;
+   }
 
    private int slop() {
       return Math.max(8, Gdx.graphics.getHeight() / 60);
@@ -53,6 +70,22 @@ public class TouchControls implements GdxInputBridge.TouchTranslator {
       this.scheduled.add(new int[]{this.frame + delay, button, pressed ? 1 : 0, sx, sy});
    }
 
+   private void click(int sx, int sy) {
+      this.schedule(1, 0, true, sx, sy);
+      this.schedule(2, 0, false, sx, sy);
+   }
+
+   /** True when this touch should aim the building ghost rather than click. */
+   private boolean aims(int x, int y, GdxInputBridge bridge) {
+      if (!GameBridge.isPlacingBuilding()) {
+         return false;
+      }
+
+      int lwjglY = bridge.toLwjglY(y);
+      int displayY = rtr.compat.lwjgl.opengl.Display.getHeight() - 1 - lwjglY;
+      return !GameBridge.isGuiAt(bridge.toGameX(x), displayY);
+   }
+
    @Override
    public boolean touchDown(int x, int y, int pointer, GdxInputBridge bridge) {
       if (pointer > 1) {
@@ -63,17 +96,40 @@ public class TouchControls implements GdxInputBridge.TouchTranslator {
       this.py[pointer] = y;
       this.down[pointer] = true;
       if (pointer == 0 && this.mode == Mode.IDLE) {
-         this.mode = Mode.PENDING;
+         MobileHud.Button b = this.hud == null ? null : this.hud.hit(x, y);
+         if (b != null) {
+            this.mode = Mode.HUD;
+            this.hudButton = b;
+            this.hud.setPressed(b);
+            return true;
+         }
+
          this.startX = x;
          this.startY = y;
          this.startTime = System.currentTimeMillis();
-         bridge.mouseMove(bridge.toGameX(x), bridge.toLwjglY(y));
+         if (this.aims(x, y, bridge)) {
+            // First touch puts the ghost under the finger; later drags nudge it relative to the finger, so the
+            // finger never hides what is being placed.
+            this.mode = Mode.AIM;
+            this.aimMoved = false;
+            if (this.aimX < 0) {
+               this.aimX = x;
+               this.aimY = y;
+               bridge.mouseMove(bridge.toGameX(x), bridge.toLwjglY(y));
+            }
+
+            this.aimBaseX = this.aimX;
+            this.aimBaseY = this.aimY;
+         } else {
+            this.mode = Mode.PENDING;
+            bridge.mouseMove(bridge.toGameX(x), bridge.toLwjglY(y));
+         }
       } else if (pointer == 1 && this.down[0]) {
          if (this.mode == Mode.LEFT_DRAG) {
             bridge.mouseButton(0, false, bridge.toGameX(this.px[0]), bridge.toLwjglY(this.py[0]));
          }
 
-         if (this.mode == Mode.PENDING || this.mode == Mode.LEFT_DRAG) {
+         if (this.mode == Mode.PENDING || this.mode == Mode.LEFT_DRAG || this.mode == Mode.AIM) {
             this.mode = Mode.TWO_FINGER;
             int mx = (this.px[0] + this.px[1]) / 2;
             int my = (this.py[0] + this.py[1]) / 2;
@@ -96,6 +152,20 @@ public class TouchControls implements GdxInputBridge.TouchTranslator {
       this.px[pointer] = x;
       this.py[pointer] = y;
       switch (this.mode) {
+         case HUD:
+            this.hud.setPressed(this.hud.hit(x, y) == this.hudButton ? this.hudButton : null);
+            break;
+         case AIM:
+            if (!this.aimMoved && (Math.abs(x - this.startX) > this.slop() || Math.abs(y - this.startY) > this.slop())) {
+               this.aimMoved = true;
+            }
+
+            if (this.aimMoved) {
+               this.aimX = Math.max(0, Math.min(Gdx.graphics.getWidth() - 1, this.aimBaseX + x - this.startX));
+               this.aimY = Math.max(0, Math.min(Gdx.graphics.getHeight() - 1, this.aimBaseY + y - this.startY));
+               bridge.mouseMove(bridge.toGameX(this.aimX), bridge.toLwjglY(this.aimY));
+            }
+            break;
          case PENDING:
             if (Math.abs(x - this.startX) > this.slop() || Math.abs(y - this.startY) > this.slop()) {
                this.mode = Mode.LEFT_DRAG;
@@ -139,9 +209,27 @@ public class TouchControls implements GdxInputBridge.TouchTranslator {
       this.py[pointer] = y;
       this.down[pointer] = false;
       switch (this.mode) {
+         case HUD:
+            this.hud.setPressed(null);
+            if (this.hud.hit(x, y) == this.hudButton) {
+               this.activate(this.hudButton, bridge);
+            }
+
+            this.mode = Mode.IDLE;
+            break;
+         case AIM:
+            if (!this.aimMoved) {
+               // A tap (no drag) moves the ghost straight to that spot.
+               this.aimX = x;
+               this.aimY = y;
+               bridge.mouseMove(bridge.toGameX(x), bridge.toLwjglY(y));
+            }
+
+            // Lifting the finger leaves the ghost where it is; Build places it.
+            this.mode = Mode.IDLE;
+            break;
          case PENDING:
-            this.schedule(1, 0, true, x, y);
-            this.schedule(2, 0, false, x, y);
+            this.click(x, y);
             this.mode = Mode.IDLE;
             break;
          case LEFT_DRAG:
@@ -153,6 +241,10 @@ public class TouchControls implements GdxInputBridge.TouchTranslator {
             int my = (this.py[0] + this.py[1]) / 2;
             bridge.mouseButton(1, false, bridge.toGameX(mx), bridge.toLwjglY(my));
             this.mode = this.down[0] || this.down[1] ? Mode.WAIT_RELEASE : Mode.IDLE;
+            if (this.aimX >= 0 && GameBridge.isPlacingBuilding()) {
+               // Panning moved the pointer; put it back on the ghost.
+               bridge.mouseMove(bridge.toGameX(this.aimX), bridge.toLwjglY(this.aimY));
+            }
             break;
          case WAIT_RELEASE:
             if (!this.down[0] && !this.down[1]) {
@@ -165,6 +257,25 @@ public class TouchControls implements GdxInputBridge.TouchTranslator {
       return true;
    }
 
+   private void activate(MobileHud.Button b, GdxInputBridge bridge) {
+      switch (b) {
+         case BUILD:
+            if (this.aimX >= 0 && GameBridge.canPlaceHere()) {
+               this.click(this.aimX, this.aimY);
+               Gdx.input.vibrate(15);
+            } else {
+               this.hud.flashBlocked();
+               Gdx.input.vibrate(60);
+            }
+            break;
+         case CANCEL:
+         case DONE:
+            GameBridge.cancelTool();
+            this.aimX = -1;
+            this.aimY = -1;
+      }
+   }
+
    @Override
    public void update(GdxInputBridge bridge) {
       this.frame++;
@@ -173,6 +284,11 @@ public class TouchControls implements GdxInputBridge.TouchTranslator {
          Gdx.input.vibrate(25);
          this.schedule(0, 1, true, this.startX, this.startY);
          this.schedule(1, 1, false, this.startX, this.startY);
+      }
+
+      if (!GameBridge.isPlacingBuilding()) {
+         this.aimX = -1;
+         this.aimY = -1;
       }
 
       while (!this.scheduled.isEmpty() && this.scheduled.peek()[0] <= this.frame) {

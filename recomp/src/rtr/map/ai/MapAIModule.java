@@ -1,5 +1,6 @@
 package rtr.map.ai;
 
+import rtr.utilities.JavaCompat;
 import java.util.ArrayList;
 import java.util.Collections;
 import org.newdawn.slick.SlickException;
@@ -249,13 +250,15 @@ public class MapAIModule extends ModuleBase {
          this.regrowListMap[r.getRegrowX()][r.getRegrowY()] = r;
       }
 
+      JavaCompat.removeEach(this.spreadListArray, this.spreadListRemove);
+
       for (SpreadTile s : this.spreadListRemove) {
-         this.spreadListArray.remove(s);
          this.spreadListMap[s.getSpreadX()][s.getSpreadY()] = null;
       }
 
+      JavaCompat.removeEach(this.regrowListArray, this.regrowListRemove);
+
       for (RegrowTile r : this.regrowListRemove) {
-         this.regrowListArray.remove(r);
          this.regrowListMap[r.getRegrowX()][r.getRegrowY()] = null;
       }
 

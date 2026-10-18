@@ -18,10 +18,23 @@ public class GdxSlickApp extends ApplicationAdapter {
    private final long shotAtMs = (long)(Float.parseFloat(System.getProperty("rtr.shotAt", "20")) * 1000.0F);
    private long startMs;
    private ScriptedInput script;
+   private String pendingShot;
+   private boolean pendingExit;
    private OnscreenKeyboard keyboard;
+   private final PerfOverlay perf = new PerfOverlay();
+   private Runnable screenOverlay;
 
    public GdxSlickApp(Runnable launcher) {
       this.launcher = launcher;
+   }
+
+   /** Drawn every frame on top of the game, in window units (used for the touch HUD). */
+   public void setScreenOverlay(Runnable overlay) {
+      this.screenOverlay = overlay;
+   }
+
+   public PerfOverlay getPerfOverlay() {
+      return this.perf;
    }
 
    public GdxInputBridge getInput() {
@@ -30,6 +43,7 @@ public class GdxSlickApp extends ApplicationAdapter {
 
    @Override
    public void create() {
+      this.input.setPerfOverlay(this.perf);
       Gdx.input.setInputProcessor(this.input);
       Gdx.input.setCatchKey(com.badlogic.gdx.Input.Keys.BACK, true);
       Display.update();
@@ -55,7 +69,9 @@ public class GdxSlickApp extends ApplicationAdapter {
 
    @Override
    public void render() {
+      PerfStats.beginFrame();
       Display.update();
+      Renderer.gdx().beginScene();
       this.input.update();
       if (this.script != null) {
          this.script.update();
@@ -74,11 +90,36 @@ public class GdxSlickApp extends ApplicationAdapter {
          }
       }
 
+      Renderer.gdx().endScene();
+      if (this.screenOverlay != null) {
+         this.screenOverlay.run();
+      }
+
+      this.perf.render();
+      PerfStats.endFrame();
+      if (this.pendingShot != null) {
+         this.saveScreenshot(this.pendingShot);
+         this.pendingShot = null;
+      }
+
+      if (this.pendingExit) {
+         System.exit(0);
+      }
+
       if (this.shotPath != null && System.currentTimeMillis() - this.startMs > this.shotAtMs) {
          this.saveScreenshot(this.shotPath);
          System.exit(0);
          Gdx.app.exit();
       }
+   }
+
+   /** Saves a screenshot at the end of the current frame (after the scene is on screen). */
+   void requestExit() {
+      this.pendingExit = true;
+   }
+
+   void requestScreenshot(String path) {
+      this.pendingShot = path;
    }
 
    /** Debug aid: -Drtr.shot=file.png [-Drtr.shotAt=seconds] saves the back buffer and exits. */

@@ -1003,7 +1003,7 @@ public class PlayState extends StateBase {
                this.controlsMouseYouLosePanel();
             }
          } else {
-            if (!this.gamePaused && SettingsParser.getEdgeScrollingEnabled()) {
+            if (!this.gamePaused && SettingsParser.getEdgeScrollingEnabled() && !touchMode) {
                this.controlsEdgeScrolling();
             }
 
@@ -4335,6 +4335,10 @@ public class PlayState extends StateBase {
    private void controlsMousePressedInterfaceMode() throws SlickException {
       if (this.gui.getGUIData().getInterfaceMode() == GUIEnums.InterfaceMode.SELECT) {
          MobBase mobSelection = mob.getMobAt(this.mouse, true);
+         if (mobSelection == null && touchMode) {
+            mobSelection = this.getMobNearTouch();
+         }
+
          if (mobSelection != null) {
             if (mobSelection.isDead()) {
                mobSelection.poke();
@@ -4769,6 +4773,88 @@ public class PlayState extends StateBase {
       } catch (LWJGLException var2) {
          var2.printStackTrace();
       }
+   }
+
+   /**
+    * Set by touch builds: disables edge scrolling (the pointer rests wherever the last tap was) and makes villager
+    * selection forgiving (a fingertip covers several sprites' worth of pixels).
+    */
+   public static boolean touchMode = false;
+
+   /** Nearest-first search for a mob around the pointer, growing the hit box until something is found. */
+   private MobBase getMobNearTouch() {
+      int[] radii = new int[]{4, 8, 14};
+
+      for (int r : radii) {
+         org.newdawn.slick.geom.Rectangle area = new org.newdawn.slick.geom.Rectangle(this.mouse.getX() - r, this.mouse.getY() - r, r * 2 + 1, r * 2 + 1);
+         MobBase m = mob.getMobAt(area, true);
+         if (m != null) {
+            return m;
+         }
+      }
+
+      return null;
+   }
+
+   /** Leaves any placement/assignment tool and returns to selection (what right-click does on the map). */
+   public void cancelInterfaceMode() {
+      this.cancelTasks();
+   }
+
+   /**
+    * True if a point on the logical screen (display pixels, top-left origin) is over the game's own GUI. Panels share
+    * this state's pointer rectangle, so it is moved there for the test and put back.
+    */
+   public boolean isGuiAt(int displayX, int displayY) {
+      if (this.gui == null || this.mouse == null) {
+         return false;
+      }
+
+      float oldX = this.mouse.getX();
+      float oldY = this.mouse.getY();
+      this.mouse.setX(displayX / ScaleControl.getInterfaceScale());
+      this.mouse.setY(displayY / ScaleControl.getInterfaceScale());
+
+      boolean hit;
+      try {
+         hit = this.gui.intersectsAnyGUIMask();
+      } finally {
+         this.mouse.setX(oldX);
+         this.mouse.setY(oldY);
+      }
+
+      return hit;
+   }
+
+   /** Whether clicking now would place the selected building (same checks as the placement click). */
+   public boolean canPlaceAtPointer() {
+      if (this.gui == null || this.gui.getGUIData().getInterfaceMode() != GUIEnums.InterfaceMode.OBJECT) {
+         return false;
+      }
+
+      MapTilesLoader.TileSet type = this.gui.getGUIData().getPlacementObjectType();
+      if (type == null) {
+         return false;
+      }
+
+      try {
+         if (type == MapTilesLoader.TileSet.CASTLE_1) {
+            return map.canPlaceObject(this.getMouseTileX(), this.getMouseTileY(), type, true);
+         }
+
+         boolean slotFree = type == MapTilesLoader.TileSet.ANCILLARY ? object.canBuildNewAncillary() : object.canBuildNewBuilding();
+         return slotFree && map.canPlaceObject(this.getMouseTileX(), this.getMouseTileY(), type, false);
+      } catch (SlickException var3) {
+         return false;
+      }
+   }
+
+   public boolean isGamePaused() {
+      return this.gamePaused;
+   }
+
+   public GUIEnums.InterfaceMode getInterfaceMode() {
+      return this.gui == null || this.gui.getGUIData() == null ? null : this.gui.getGUIData().getInterfaceMode();
    }
 
    private void cancelTasks() {

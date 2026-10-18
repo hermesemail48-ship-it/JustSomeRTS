@@ -116,6 +116,7 @@ public class ResourceModule extends ModuleBase {
    private Image[][] resourceImages;
    private int[] resourceStores = new int[ResourceModule.ResourceType.values().length];
    private int[] resourceStoresSpace = new int[ResourceModule.ResourceType.values().length];
+   private static final int RESOURCE_TYPE_COUNT = ResourceModule.ResourceType.values().length;
    private EnumMap<MapTilesLoader.TileSet, int[]> resourceStoresSpaceByType = new EnumMap<>(MapTilesLoader.TileSet.class);
    private int[] resourceGround = new int[ResourceModule.ResourceType.values().length];
    private int[] resourceGroundInRange = new int[ResourceModule.ResourceType.values().length];
@@ -318,8 +319,15 @@ public class ResourceModule extends ModuleBase {
       this.resourceStoresSpace = new int[ResourceModule.ResourceType.values().length];
       HashMap<MapTilesLoader.TileSet, HashMap<ObjectBase.ObjectSubType, ObjectFlags>> flagList = this.object.getObjectFlagFactory().getObjectFlagsList();
 
+      // Reuse each building type's counter array (zeroed) instead of allocating a new one per type every tick.
       for (HashMap<ObjectBase.ObjectSubType, ObjectFlags> o : flagList.values()) {
-         this.resourceStoresSpaceByType.put(o.get(ObjectBase.ObjectSubType.BUILT).getBaseType(), new int[ResourceModule.ResourceType.values().length]);
+         MapTilesLoader.TileSet baseType = o.get(ObjectBase.ObjectSubType.BUILT).getBaseType();
+         int[] counts = this.resourceStoresSpaceByType.get(baseType);
+         if (counts != null && counts.length == RESOURCE_TYPE_COUNT) {
+            java.util.Arrays.fill(counts, 0);
+         } else {
+            this.resourceStoresSpaceByType.put(baseType, new int[RESOURCE_TYPE_COUNT]);
+         }
       }
 
       this.resourceGround = new int[ResourceModule.ResourceType.values().length];
@@ -548,8 +556,15 @@ public class ResourceModule extends ModuleBase {
 
       HashMap<MapTilesLoader.TileSet, HashMap<ObjectBase.ObjectSubType, ObjectFlags>> flagList = this.object.getObjectFlagFactory().getObjectFlagsList();
 
+      // Reuse each building type's counter array (zeroed) instead of allocating a new one per type every tick.
       for (HashMap<ObjectBase.ObjectSubType, ObjectFlags> o : flagList.values()) {
-         this.resourceStoresSpaceByType.put(o.get(ObjectBase.ObjectSubType.BUILT).getBaseType(), new int[ResourceModule.ResourceType.values().length]);
+         MapTilesLoader.TileSet baseType = o.get(ObjectBase.ObjectSubType.BUILT).getBaseType();
+         int[] counts = this.resourceStoresSpaceByType.get(baseType);
+         if (counts != null && counts.length == RESOURCE_TYPE_COUNT) {
+            java.util.Arrays.fill(counts, 0);
+         } else {
+            this.resourceStoresSpaceByType.put(baseType, new int[RESOURCE_TYPE_COUNT]);
+         }
       }
 
       this.updateResourceCount();
@@ -1555,8 +1570,15 @@ public class ResourceModule extends ModuleBase {
 
       HashMap<MapTilesLoader.TileSet, HashMap<ObjectBase.ObjectSubType, ObjectFlags>> flagList = this.object.getObjectFlagFactory().getObjectFlagsList();
 
+      // Reuse each building type's counter array (zeroed) instead of allocating a new one per type every tick.
       for (HashMap<ObjectBase.ObjectSubType, ObjectFlags> o : flagList.values()) {
-         this.resourceStoresSpaceByType.put(o.get(ObjectBase.ObjectSubType.BUILT).getBaseType(), new int[ResourceModule.ResourceType.values().length]);
+         MapTilesLoader.TileSet baseType = o.get(ObjectBase.ObjectSubType.BUILT).getBaseType();
+         int[] counts = this.resourceStoresSpaceByType.get(baseType);
+         if (counts != null && counts.length == RESOURCE_TYPE_COUNT) {
+            java.util.Arrays.fill(counts, 0);
+         } else {
+            this.resourceStoresSpaceByType.put(baseType, new int[RESOURCE_TYPE_COUNT]);
+         }
       }
 
       this.totalAvailableGoldCoins = 0;

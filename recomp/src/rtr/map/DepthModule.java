@@ -1,5 +1,6 @@
 package rtr.map;
 
+import rtr.utilities.IntKeyMap;
 import java.util.HashMap;
 import org.newdawn.slick.Image;
 import org.newdawn.slick.ImageBuffer;
@@ -14,7 +15,7 @@ public class DepthModule extends ModuleBase {
    private byte[][] depthMap;
    private ImageBuffer[] renderBuffer = new ImageBuffer[17];
    private Image[] render = new Image[17];
-   private HashMap<Integer, byte[][]> depthMasks;
+   private IntKeyMap<byte[][]> depthMasks;
    private boolean debug = false;
 
    @Override

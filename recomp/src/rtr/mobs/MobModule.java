@@ -200,6 +200,7 @@ public class MobModule extends ModuleBase {
          }
       }
 
+      this.filledMobNodes.clear();
       ArrayFillUtil.fill(this.mobPositionMap, (byte)0);
    }
 
@@ -514,6 +515,16 @@ public class MobModule extends ModuleBase {
       this.mobsWithDeliveryAssignmentDead = new ArrayList<>();
    }
 
+   private final ArrayList<ArrayList> filledMobNodes = new ArrayList<>();
+
+   private void addToMobNode(ArrayList node, MobBase m) {
+      if (node.isEmpty()) {
+         this.filledMobNodes.add(node);
+      }
+
+      node.add(m);
+   }
+
    private void updateMobSortData() {
       if (this.mobAdd.size() > 0) {
          for (int e = 0; e < this.mobAdd.size(); e++) {
@@ -524,36 +535,22 @@ public class MobModule extends ModuleBase {
          this.mobAdd.clear();
       }
 
-      for (int x = 0; x < this.mobNodes.length; x++) {
-         for (int y = 0; y < this.mobNodes[x].length; y++) {
-            this.mobNodes[x][y].clear();
-         }
+      // Only the grid cells filled last time can be non-empty: clearing just those replaces ~110k clear() calls
+      // (32x32 cells for every mob type and group) per call.
+      for (int i = 0; i < this.filledMobNodes.size(); i++) {
+         this.filledMobNodes.get(i).clear();
       }
+
+      this.filledMobNodes.clear();
 
       MobBase.MobType[] nodeY;
       for (MobBase.MobType t : nodeY = MobBase.MobType.values()) {
-         ArrayList[][] mobNodeByType = this.mobNodesByType.get(t);
-
-         for (int x = 0; x < mobNodeByType.length; x++) {
-            for (int y = 0; y < mobNodeByType[x].length; y++) {
-               mobNodeByType[x][y].clear();
-            }
-         }
-
          this.mobsByTypeAll.get(t).clear();
          this.mobsByTypeAlive.get(t).clear();
          this.mobsByTypeDead.get(t).clear();
       }
 
       for (MobBase.MobGroup g : MobBase.MobGroup.values()) {
-         ArrayList[][] mobNodeByGroup = this.mobNodesByGroup.get(g);
-
-         for (int x = 0; x < mobNodeByGroup.length; x++) {
-            for (int y = 0; y < mobNodeByGroup[x].length; y++) {
-               mobNodeByGroup[x][y].clear();
-            }
-         }
-
          this.mobsByGroupAll.get(g).clear();
          this.mobsByGroupAlive.get(g).clear();
          this.mobsByGroupDead.get(g).clear();
@@ -580,9 +577,9 @@ public class MobModule extends ModuleBase {
       for (MobBase m : this.mobArray) {
          int nodeX = m.getTileX() / 8;
          int nodeYx = m.getTileY() / 8;
-         this.mobNodes[nodeX][nodeYx].add(m);
-         this.mobNodesByType.get(m.getMobType())[nodeX][nodeYx].add(m);
-         this.mobNodesByGroup.get(m.getMobGroup())[nodeX][nodeYx].add(m);
+         this.addToMobNode(this.mobNodes[nodeX][nodeYx], m);
+         this.addToMobNode(this.mobNodesByType.get(m.getMobType())[nodeX][nodeYx], m);
+         this.addToMobNode(this.mobNodesByGroup.get(m.getMobGroup())[nodeX][nodeYx], m);
          this.mobsByTypeAll.get(m.getMobType()).add(m);
          this.mobsByGroupAll.get(m.getMobGroup()).add(m);
          this.mobsByJobAll.get(m.getMobJobType()).add(m);

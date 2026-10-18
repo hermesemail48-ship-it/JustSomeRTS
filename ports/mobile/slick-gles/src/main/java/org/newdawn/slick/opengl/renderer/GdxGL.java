@@ -386,6 +386,8 @@ public class GdxGL implements SGL {
       this.shader.setUniformf(
          "u_planeOn", this.planeOn[0] ? 1.0F : 0.0F, this.planeOn[1] ? 1.0F : 0.0F, this.planeOn[2] ? 1.0F : 0.0F, this.planeOn[3] ? 1.0F : 0.0F
       );
+      rtr.compat.PerfStats.drawCalls++;
+      rtr.compat.PerfStats.vertices += this.vertexCount;
       this.mesh.setVertices(this.vertices, 0, this.vertexCount * FLOATS_PER_VERTEX);
       this.mesh.render(this.shader, this.batchType, 0, this.vertexCount);
       this.vertexCount = 0;
@@ -674,6 +676,7 @@ public class GdxGL implements SGL {
    @Override
    public void initDisplay(int width, int height) {
       this.ensureInit();
+      this.captureDefaultFramebuffer();
       this.flush();
       this.texture2D = true;
       this.blend = true;
@@ -682,8 +685,154 @@ public class GdxGL implements SGL {
       this.clearColor[0] = this.clearColor[1] = this.clearColor[2] = this.clearColor[3] = 0.0F;
       Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
       Gdx.gl.glDisable(GL20.GL_CULL_FACE);
-      Gdx.gl.glViewport(0, 0, Gdx.graphics.getBackBufferWidth(), Gdx.graphics.getBackBufferHeight());
+      this.bindMainTarget();
       this.modelView.idt();
+   }
+
+   // ---------------------------------------------------------------- main screen / scene buffer
+
+   private boolean sceneBufferEnabled;
+   private int sceneFbo;
+   private int sceneTexture;
+   private int sceneWidth;
+   private int sceneHeight;
+   private int defaultFramebuffer;
+
+   /**
+    * When enabled, the game draws into an off-screen buffer at its logical resolution (Display size) and
+    * {@link #endScene()} scales it to the screen in one pass. On phones the logical size is ~720p while the panel is
+    * 1170p+, so this cuts the pixels shaded by the game's many full-screen layers (lighting, clouds, fog) ~2-3x.
+    */
+   public void setSceneBufferEnabled(boolean enabled) {
+      this.sceneBufferEnabled = enabled;
+   }
+
+   public boolean isSceneBufferEnabled() {
+      return this.sceneBufferEnabled;
+   }
+
+   /** Called at the start of every frame: remembers the platform's framebuffer and binds the game's target. */
+   public void beginScene() {
+      this.ensureInit();
+      this.captureDefaultFramebuffer();
+      this.bindMainTarget();
+   }
+
+   /**
+    * Records the platform's own framebuffer (0 on desktop/Android, GLKView's on iOS, rebound before every frame).
+    * Never mistakes the scene buffer for it, which would make the final blit sample the texture it renders into.
+    */
+   private void captureDefaultFramebuffer() {
+      IntBuffer buf = BufferUtils.newIntBuffer(16);
+      Gdx.gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, buf);
+      int bound = buf.get(0);
+      if (this.sceneFbo == 0 || bound != this.sceneFbo) {
+         this.defaultFramebuffer = bound;
+      }
+   }
+
+   private void bindMainTarget() {
+      this.flush();
+      int lw = rtr.compat.lwjgl.opengl.Display.getWidth();
+      int lh = rtr.compat.lwjgl.opengl.Display.getHeight();
+      if (this.sceneBufferEnabled) {
+         if (this.sceneFbo == 0 || this.sceneWidth != lw || this.sceneHeight != lh) {
+            this.createSceneBuffer(lw, lh);
+         }
+
+         Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, this.sceneFbo);
+         Gdx.gl.glViewport(0, 0, lw, lh);
+         this.targetScale = 1.0F;
+      } else {
+         Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, this.defaultFramebuffer);
+         Gdx.gl.glViewport(0, 0, Gdx.graphics.getBackBufferWidth(), Gdx.graphics.getBackBufferHeight());
+         this.targetScale = rtr.compat.lwjgl.opengl.Display.getRenderScale();
+      }
+   }
+
+   private void createSceneBuffer(int w, int h) {
+      if (this.sceneFbo != 0) {
+         Gdx.gl.glDeleteFramebuffer(this.sceneFbo);
+         Gdx.gl.glDeleteTexture(this.sceneTexture);
+      }
+
+      this.sceneWidth = w;
+      this.sceneHeight = h;
+      this.sceneTexture = Gdx.gl.glGenTexture();
+      Gdx.gl.glBindTexture(GL20.GL_TEXTURE_2D, this.sceneTexture);
+      Gdx.gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_RGBA, w, h, 0, GL20.GL_RGBA, GL20.GL_UNSIGNED_BYTE, null);
+      Gdx.gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_MIN_FILTER, GL20.GL_LINEAR);
+      Gdx.gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_MAG_FILTER, GL20.GL_LINEAR);
+      Gdx.gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_S, GL20.GL_CLAMP_TO_EDGE);
+      Gdx.gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_T, GL20.GL_CLAMP_TO_EDGE);
+      Gdx.gl.glBindTexture(GL20.GL_TEXTURE_2D, this.boundTexture);
+      this.sceneFbo = Gdx.gl.glGenFramebuffer();
+      Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, this.sceneFbo);
+      Gdx.gl.glFramebufferTexture2D(GL20.GL_FRAMEBUFFER, GL20.GL_COLOR_ATTACHMENT0, GL20.GL_TEXTURE_2D, this.sceneTexture, 0);
+      int status = Gdx.gl.glCheckFramebufferStatus(GL20.GL_FRAMEBUFFER);
+      if (status != GL20.GL_FRAMEBUFFER_COMPLETE) {
+         System.err.println("Scene buffer incomplete (0x" + Integer.toHexString(status) + "), drawing directly to the screen");
+         this.sceneBufferEnabled = false;
+         Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, this.defaultFramebuffer);
+      }
+   }
+
+   /** Debug: writes the scene buffer's current contents to a PNG. */
+   public void dumpSceneBuffer(String path) {
+      if (this.sceneFbo == 0) {
+         return;
+      }
+
+      this.flush();
+      IntBuffer prev = BufferUtils.newIntBuffer(16);
+      Gdx.gl.glGetIntegerv(GL20.GL_FRAMEBUFFER_BINDING, prev);
+      Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, this.sceneFbo);
+      com.badlogic.gdx.graphics.Pixmap p = com.badlogic.gdx.graphics.Pixmap.createFromFrameBuffer(0, 0, this.sceneWidth, this.sceneHeight);
+      com.badlogic.gdx.graphics.PixmapIO.writePNG(Gdx.files.absolute(path), p, -1, true);
+      p.dispose();
+      Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, prev.get(0));
+      System.out.println("scene " + this.sceneWidth + "x" + this.sceneHeight + " fbo=" + this.sceneFbo + " default=" + this.defaultFramebuffer);
+   }
+
+   /** Called at the end of every frame: scales the scene buffer onto the screen (no-op when disabled). */
+   public void endScene() {
+      this.flush();
+      if (!this.sceneBufferEnabled || this.sceneFbo == 0) {
+         return;
+      }
+
+      Gdx.gl.glBindFramebuffer(GL20.GL_FRAMEBUFFER, this.defaultFramebuffer);
+      Gdx.gl.glViewport(0, 0, Gdx.graphics.getBackBufferWidth(), Gdx.graphics.getBackBufferHeight());
+      Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+      Gdx.gl.glDisable(GL20.GL_BLEND);
+      Gdx.gl.glColorMask(true, true, true, true);
+      Matrix4 savedProj = new Matrix4(this.projection);
+      float[] planesOn = new float[]{0, 0, 0, 0};
+      this.shader.bind();
+      this.shader.setUniformMatrix("u_proj", this.tmp.setToOrtho(0.0F, 1.0F, 0.0F, 1.0F, 1.0F, -1.0F));
+      this.shader.setUniformi("u_texture", 0);
+      this.shader.setUniformf("u_planeOn", planesOn[0], planesOn[1], planesOn[2], planesOn[3]);
+      Gdx.gl.glActiveTexture(GL20.GL_TEXTURE0);
+      Gdx.gl.glBindTexture(GL20.GL_TEXTURE_2D, this.sceneTexture);
+      float white = packColor(1.0F, 1.0F, 1.0F, 1.0F);
+      int i = 0;
+      float[] v = this.vertices;
+      float[][] quad = new float[][]{{0, 0}, {1, 0}, {1, 1}, {0, 0}, {1, 1}, {0, 1}};
+
+      for (float[] q : quad) {
+         v[i++] = q[0];
+         v[i++] = q[1];
+         v[i++] = white;
+         v[i++] = q[0];
+         v[i++] = q[1];
+         v[i++] = 0.0F;
+      }
+
+      this.mesh.setVertices(v, 0, i);
+      this.mesh.render(this.shader, GL20.GL_TRIANGLES, 0, 6);
+      this.projection.set(savedProj);
+      Gdx.gl.glBindTexture(GL20.GL_TEXTURE_2D, this.boundTexture);
+      org.newdawn.slick.opengl.TextureImpl.unbind();
    }
 
    @Override
@@ -932,6 +1081,7 @@ public class GdxGL implements SGL {
       if (id != this.boundTexture) {
          this.flush();
          this.boundTexture = id;
+         rtr.compat.PerfStats.textureSwitches++;
       }
 
       Gdx.gl.glBindTexture(GL20.GL_TEXTURE_2D, id);

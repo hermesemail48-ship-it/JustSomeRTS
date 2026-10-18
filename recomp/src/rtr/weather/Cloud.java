@@ -209,9 +209,16 @@ public class Cloud {
       if (nearMouse) {
          int mouseX = Game.getCS().getMouseOnMapX();
          int mouseY = Game.getCS().getMouseOnMapY();
-         float angle = Utilities.calculateAngle(this.cloudX, this.cloudY, mouseX, mouseY);
-         this.cloudX = (float)(this.cloudX - Math.cos(angle) / 2.5);
-         this.cloudY = (float)(this.cloudY - Math.sin(angle) / 2.5);
+         // Unit vector towards the mouse, i.e. (cos, sin) of atan2(dy, dx), without the trigonometry.
+         float dx = mouseX - this.cloudX;
+         float dy = mouseY - this.cloudY;
+         float len = (float)Math.sqrt(dx * dx + dy * dy);
+         if (len > 0.0F) {
+            this.cloudX = (float)(this.cloudX - dx / len / 2.5);
+            this.cloudY = (float)(this.cloudY - dy / len / 2.5);
+         } else {
+            this.cloudX = (float)(this.cloudX - 1.0 / 2.5);
+         }
       }
    }
 
@@ -326,9 +333,16 @@ public class Cloud {
       if (nearMouse) {
          int mouseX = Game.getCS().getMouseOnMapX();
          int mouseY = Game.getCS().getMouseOnMapY();
-         float angle = Utilities.calculateAngle(this.cloudX, this.cloudY, mouseX, mouseY);
-         this.cloudX = (float)(this.cloudX - Math.cos(angle) / 2.5);
-         this.cloudY = (float)(this.cloudY - Math.sin(angle) / 2.5);
+         // Unit vector towards the mouse, i.e. (cos, sin) of atan2(dy, dx), without the trigonometry.
+         float dx = mouseX - this.cloudX;
+         float dy = mouseY - this.cloudY;
+         float len = (float)Math.sqrt(dx * dx + dy * dy);
+         if (len > 0.0F) {
+            this.cloudX = (float)(this.cloudX - dx / len / 2.5);
+            this.cloudY = (float)(this.cloudY - dy / len / 2.5);
+         } else {
+            this.cloudX = (float)(this.cloudX - 1.0 / 2.5);
+         }
       }
    }
 
@@ -341,8 +355,9 @@ public class Cloud {
          if (!(Math.abs(mouseX - this.renderX) > 256.0F) && !(Math.abs(mouseY - this.renderY) > 256.0F)) {
             int x2 = (int)this.renderX;
             int y2 = (int)this.renderY;
-            double finalDistance = Math.sqrt((y2 - mouseY) * (y2 - mouseY) + (x2 - mouseX) * (x2 - mouseX));
-            return finalDistance < 256.0;
+            // Same test as sqrt(d2) < 256, without the square root (runs for every cloud tile every tick).
+            int d2 = (y2 - mouseY) * (y2 - mouseY) + (x2 - mouseX) * (x2 - mouseX);
+            return d2 < 65536;
          } else {
             return false;
          }

@@ -1,5 +1,6 @@
 package rtr.map;
 
+import rtr.utilities.IntKeyMap;
 import java.util.HashMap;
 import org.newdawn.slick.Color;
 import org.newdawn.slick.SlickException;
@@ -28,7 +29,7 @@ public class CollisionModule extends ModuleBase {
    private int tileGlobalX;
    private int tileGlobalY;
    private byte[][] collisionMap;
-   private HashMap<Integer, byte[][]> collisionMasks;
+   private IntKeyMap<byte[][]> collisionMasks;
    private Color[] colorNorth;
    private Color[] colorEast;
    private Color[] colorSouth;

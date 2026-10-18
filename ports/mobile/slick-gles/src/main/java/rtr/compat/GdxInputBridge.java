@@ -13,6 +13,12 @@ import rtr.compat.lwjgl.opengl.Display;
  */
 public class GdxInputBridge extends InputAdapter {
    private TouchTranslator touch;
+   private PerfOverlay perfOverlay;
+   private int fingersDown;
+
+   public void setPerfOverlay(PerfOverlay overlay) {
+      this.perfOverlay = overlay;
+   }
 
    public interface TouchTranslator {
       boolean touchDown(int x, int y, int pointer, GdxInputBridge bridge);
@@ -67,6 +73,11 @@ public class GdxInputBridge extends InputAdapter {
 
    @Override
    public boolean keyDown(int keycode) {
+      if (keycode == com.badlogic.gdx.Input.Keys.F3 && this.perfOverlay != null) {
+         this.perfOverlay.toggle();
+         return true;
+      }
+
       int k = GdxKeyMap.toLwjgl(keycode);
       Keyboard.push(k, (char)Keyboard.CHAR_NONE, true, false);
       return true;
@@ -91,6 +102,11 @@ public class GdxInputBridge extends InputAdapter {
 
    @Override
    public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+      this.fingersDown++;
+      if (this.fingersDown == 3 && this.perfOverlay != null) {
+         this.perfOverlay.toggle();
+      }
+
       if (this.isTouchEvent()) {
          return this.touch.touchDown(screenX, screenY, pointer, this);
       }
@@ -104,6 +120,7 @@ public class GdxInputBridge extends InputAdapter {
 
    @Override
    public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+      this.fingersDown = Math.max(0, this.fingersDown - 1);
       if (this.isTouchEvent()) {
          return this.touch.touchUp(screenX, screenY, pointer, this);
       }

@@ -1,5 +1,6 @@
 package rtr.map;
 
+import rtr.utilities.IntKeyMap;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -275,59 +276,59 @@ import rtr.resources.ResourceModule;
 import rtr.utilities.Utilities;
 
 public class MapTilesLoader {
-   private HashMap<Integer, Image> tiles = new HashMap<>();
-   private HashMap<Integer, byte[][]> collisionTiles = new HashMap<>();
-   private HashMap<Integer, byte[][]> depthTiles = new HashMap<>();
-   private HashMap<Integer, byte[][]> particleTiles = new HashMap<>();
-   private HashMap<Integer, byte[][][]> shadowTiles = new HashMap<>();
-   private HashMap<Integer, Image> objects = new HashMap<>();
-   private HashMap<Integer, MapTilesLoader.TileSet> GIDToTileSet = new HashMap<>();
-   private HashMap<Integer, Boolean> isLoaded = new HashMap<>();
+   private IntKeyMap<Image> tiles = new IntKeyMap<>();
+   private IntKeyMap<byte[][]> collisionTiles = new IntKeyMap<>();
+   private IntKeyMap<byte[][]> depthTiles = new IntKeyMap<>();
+   private IntKeyMap<byte[][]> particleTiles = new IntKeyMap<>();
+   private IntKeyMap<byte[][][]> shadowTiles = new IntKeyMap<>();
+   private IntKeyMap<Image> objects = new IntKeyMap<>();
+   private IntKeyMap<MapTilesLoader.TileSet> GIDToTileSet = new IntKeyMap<>();
+   private IntKeyMap<Boolean> isLoaded = new IntKeyMap<>();
    private Properties properties = new Properties();
-   private HashMap<Integer, String> tileName = new HashMap<>();
-   private HashMap<Integer, String> tileDescription = new HashMap<>();
-   private HashMap<Integer, Byte> tileBlockLarge = new HashMap<>();
-   private HashMap<Integer, Byte> tileBlockSmall = new HashMap<>();
-   private HashMap<Integer, Byte> tileBlockRoad = new HashMap<>();
-   private HashMap<Integer, Byte> tileBlockGate = new HashMap<>();
-   private HashMap<Integer, Byte> tileBlockLight = new HashMap<>();
-   private HashMap<Integer, Byte> tileBlockWater = new HashMap<>();
-   private HashMap<Integer, Byte> tileBlockCorruption = new HashMap<>();
-   private HashMap<Integer, Byte> tileBlockGhost = new HashMap<>();
-   private HashMap<Integer, Integer> tileMovementCost = new HashMap<>();
-   private HashMap<Integer, Byte> tileDepth = new HashMap<>();
-   private HashMap<Integer, Byte> tileParticles = new HashMap<>();
-   private HashMap<Integer, Byte> tileShadow = new HashMap<>();
-   private HashMap<Integer, Byte> tileLight = new HashMap<>();
-   private HashMap<Integer, Byte> tileLayer = new HashMap<>();
-   private HashMap<Integer, MapTilesLoader.TileSetType> tileType = new HashMap<>();
-   private HashMap<Integer, Byte> tileCollision = new HashMap<>();
-   private HashMap<Integer, ResourceModule.ResourceType> tileResourceType = new HashMap<>();
-   private HashMap<Integer, Byte> tileResourceAmount = new HashMap<>();
-   private HashMap<Integer, Byte> tileResourceAmountMax = new HashMap<>();
-   private HashMap<Integer, ResourceModule.ResourceColorSet> tileResourceColorSet = new HashMap<>();
-   private HashMap<Integer, Byte> tileCanClear = new HashMap<>();
-   private HashMap<Integer, Byte> tileInvulnerable = new HashMap<>();
-   private HashMap<Integer, Byte> tileFrozen = new HashMap<>();
-   private HashMap<Integer, Byte> tileWater = new HashMap<>();
-   private HashMap<Integer, Byte> tileCourierGolemParking = new HashMap<>();
-   private HashMap<Integer, Byte> tileInteractPoint = new HashMap<>();
-   private HashMap<Integer, Byte> tileFunctionalPoint = new HashMap<>();
-   private HashMap<Integer, Byte> tilePrayPoint = new HashMap<>();
-   private HashMap<Integer, Byte> tileVesselPoint = new HashMap<>();
-   private HashMap<Integer, Byte> tileCrops = new HashMap<>();
-   private HashMap<Integer, Color> tileMiniMapColor = new HashMap<>();
-   private HashMap<Integer, MapTilesLoader.TileSet> tileCanRegrow = new HashMap<>();
-   private HashMap<Integer, Integer> tileRegrowRate = new HashMap<>();
-   private HashMap<Integer, Byte> tileRegrowOnlyMotivated = new HashMap<>();
-   private HashMap<Integer, Byte> tileRegrowIgnoreWeather = new HashMap<>();
-   private HashMap<Integer, MapTilesLoader.TileSet> tileCanSpread = new HashMap<>();
-   private HashMap<Integer, Integer> tileSpreadRate = new HashMap<>();
-   private HashMap<Integer, Byte> tileSpreadOnlyMotivated = new HashMap<>();
-   private HashMap<Integer, Byte> tileSpreadIgnoreWeather = new HashMap<>();
-   private HashMap<Integer, Integer> tileEssenceAmount = new HashMap<>();
-   private HashMap<Integer, Byte> tilePropHeight = new HashMap<>();
-   private HashMap<Integer, Byte> tilePropWidth = new HashMap<>();
+   private IntKeyMap<String> tileName = new IntKeyMap<>();
+   private IntKeyMap<String> tileDescription = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileBlockLarge = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileBlockSmall = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileBlockRoad = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileBlockGate = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileBlockLight = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileBlockWater = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileBlockCorruption = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileBlockGhost = new IntKeyMap<>();
+   private IntKeyMap<Integer> tileMovementCost = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileDepth = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileParticles = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileShadow = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileLight = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileLayer = new IntKeyMap<>();
+   private IntKeyMap<MapTilesLoader.TileSetType> tileType = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileCollision = new IntKeyMap<>();
+   private IntKeyMap<ResourceModule.ResourceType> tileResourceType = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileResourceAmount = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileResourceAmountMax = new IntKeyMap<>();
+   private IntKeyMap<ResourceModule.ResourceColorSet> tileResourceColorSet = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileCanClear = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileInvulnerable = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileFrozen = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileWater = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileCourierGolemParking = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileInteractPoint = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileFunctionalPoint = new IntKeyMap<>();
+   private IntKeyMap<Byte> tilePrayPoint = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileVesselPoint = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileCrops = new IntKeyMap<>();
+   private IntKeyMap<Color> tileMiniMapColor = new IntKeyMap<>();
+   private IntKeyMap<MapTilesLoader.TileSet> tileCanRegrow = new IntKeyMap<>();
+   private IntKeyMap<Integer> tileRegrowRate = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileRegrowOnlyMotivated = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileRegrowIgnoreWeather = new IntKeyMap<>();
+   private IntKeyMap<MapTilesLoader.TileSet> tileCanSpread = new IntKeyMap<>();
+   private IntKeyMap<Integer> tileSpreadRate = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileSpreadOnlyMotivated = new IntKeyMap<>();
+   private IntKeyMap<Byte> tileSpreadIgnoreWeather = new IntKeyMap<>();
+   private IntKeyMap<Integer> tileEssenceAmount = new IntKeyMap<>();
+   private IntKeyMap<Byte> tilePropHeight = new IntKeyMap<>();
+   private IntKeyMap<Byte> tilePropWidth = new IntKeyMap<>();
    private Color[] colorNorth;
    private Color[] colorEast;
    private Color[] colorSouth;
@@ -1640,23 +1641,23 @@ public class MapTilesLoader {
       return this.GIDToTileSet.get(this.getTileSetGID(tileId));
    }
 
-   public HashMap<Integer, Image> getTiles() {
+   public IntKeyMap<Image> getTiles() {
       return this.tiles;
    }
 
-   public HashMap<Integer, byte[][]> getCollisionTiles() {
+   public IntKeyMap<byte[][]> getCollisionTiles() {
       return this.collisionTiles;
    }
 
-   public HashMap<Integer, byte[][]> getDepthTiles() {
+   public IntKeyMap<byte[][]> getDepthTiles() {
       return this.depthTiles;
    }
 
-   public HashMap<Integer, byte[][]> getParticleTiles() {
+   public IntKeyMap<byte[][]> getParticleTiles() {
       return this.particleTiles;
    }
 
-   public HashMap<Integer, byte[][][]> getShadowTiles() {
+   public IntKeyMap<byte[][][]> getShadowTiles() {
       return this.shadowTiles;
    }
 
