@@ -114,14 +114,16 @@ public class ResourceModule extends ModuleBase {
    private ResourceBase[][] resourcesOnGroundMap;
    private SpriteSheet resourceSheet;
    private Image[][] resourceImages;
-   private int[] resourceStores = new int[ResourceModule.ResourceType.values().length];
-   private int[] resourceStoresSpace = new int[ResourceModule.ResourceType.values().length];
-   private static final int RESOURCE_TYPE_COUNT = ResourceModule.ResourceType.values().length;
+   private int[] resourceStores = new int[RESOURCE_TYPES.length];
+   private int[] resourceStoresSpace = new int[RESOURCE_TYPES.length];
+   /** values() copies the array on every call; this is called per object per tick. */
+   private static final ResourceModule.ResourceType[] RESOURCE_TYPES = ResourceModule.ResourceType.values();
+   private static final int RESOURCE_TYPE_COUNT = RESOURCE_TYPES.length;
    private EnumMap<MapTilesLoader.TileSet, int[]> resourceStoresSpaceByType = new EnumMap<>(MapTilesLoader.TileSet.class);
-   private int[] resourceGround = new int[ResourceModule.ResourceType.values().length];
-   private int[] resourceGroundInRange = new int[ResourceModule.ResourceType.values().length];
-   private int[] resourceCarried = new int[ResourceModule.ResourceType.values().length];
-   private int[] resourceEquipped = new int[ResourceModule.ResourceType.values().length];
+   private int[] resourceGround = new int[RESOURCE_TYPES.length];
+   private int[] resourceGroundInRange = new int[RESOURCE_TYPES.length];
+   private int[] resourceCarried = new int[RESOURCE_TYPES.length];
+   private int[] resourceEquipped = new int[RESOURCE_TYPES.length];
    private int increaseWaterRate = 1000;
    private int increaseWaterRateTick;
    private WaterBalancer waterBalancer;
@@ -137,8 +139,8 @@ public class ResourceModule extends ModuleBase {
    private int maximumAvailableEnergy;
    public static int RESOURCE_STORAGE_AMOUNT = 501;
    public static int RESOURCE_INFINITE_AMOUNT = 502;
-   private int[] resourceMakeAmounts = new int[ResourceModule.ResourceType.values().length];
-   private int[] resourceMaintainAmounts = new int[ResourceModule.ResourceType.values().length];
+   private int[] resourceMakeAmounts = new int[RESOURCE_TYPES.length];
+   private int[] resourceMaintainAmounts = new int[RESOURCE_TYPES.length];
    private int resourceLastID;
    private int farmlandLastID;
    public EnumMap<ResourceModule.ResourceType, EnumMap<ResourceModule.ResourceColorSet, ResourceModule.ResourceSpriteSet>> resourceColorMap;
@@ -153,7 +155,7 @@ public class ResourceModule extends ModuleBase {
       super.initModule(mT, cS);
 
       ResourceModule.ResourceType[] var6;
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          this.resourceGatherRate.put(t, 0);
          this.resourceGatherHistory.put(t, new ArrayList<>());
          this.resourceGatherRateHistory.put(t, new ArrayList<>());
@@ -178,7 +180,7 @@ public class ResourceModule extends ModuleBase {
       if (this.resourcesProvisionerByType == null) {
          this.resourcesProvisionerByType = new HashMap<>();
 
-         for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+         for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
             this.resourcesProvisionerByType.put(t, new ArrayList<>());
          }
       }
@@ -186,7 +188,7 @@ public class ResourceModule extends ModuleBase {
       if (this.resourcesBarListMain == null) {
          this.resourcesBarListMain = new HashMap<>();
 
-         for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+         for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
             this.resourcesBarListMain.put(t, false);
          }
 
@@ -235,7 +237,7 @@ public class ResourceModule extends ModuleBase {
          this.waterBalancer = new WaterBalancer();
       }
 
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          if (t.getTemplate().getResourceCategory() != ResourceModule.ResourceCategory.RAW
             && t.getTemplate().getResourceCategory() != ResourceModule.ResourceCategory.FOOD_AND_WATER) {
             this.resourceMakeAmounts[t.ordinal()] = 0;
@@ -258,7 +260,7 @@ public class ResourceModule extends ModuleBase {
       this.mapLayers = 0;
 
       ResourceModule.ResourceType[] var4;
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          this.resourcesBarListMain.put(t, false);
       }
 
@@ -291,7 +293,7 @@ public class ResourceModule extends ModuleBase {
 
       this.resourcesProvisioner.clear();
 
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          this.resourcesProvisionerByType.get(t).clear();
       }
 
@@ -301,7 +303,7 @@ public class ResourceModule extends ModuleBase {
       this.resourcesOnGround.clear();
       this.farmlandArray.clear();
 
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          this.resourceGatherRate.put(t, 0);
          this.resourceGatherHistory.get(t).clear();
          this.resourceGatherRateHistory.get(t).clear();
@@ -315,8 +317,8 @@ public class ResourceModule extends ModuleBase {
          }
       }
 
-      this.resourceStores = new int[ResourceModule.ResourceType.values().length];
-      this.resourceStoresSpace = new int[ResourceModule.ResourceType.values().length];
+      this.resourceStores = new int[RESOURCE_TYPES.length];
+      this.resourceStoresSpace = new int[RESOURCE_TYPES.length];
       HashMap<MapTilesLoader.TileSet, HashMap<ObjectBase.ObjectSubType, ObjectFlags>> flagList = this.object.getObjectFlagFactory().getObjectFlagsList();
 
       // Reuse each building type's counter array (zeroed) instead of allocating a new one per type every tick.
@@ -330,13 +332,13 @@ public class ResourceModule extends ModuleBase {
          }
       }
 
-      this.resourceGround = new int[ResourceModule.ResourceType.values().length];
-      this.resourceGroundInRange = new int[ResourceModule.ResourceType.values().length];
-      this.resourceCarried = new int[ResourceModule.ResourceType.values().length];
-      this.resourceEquipped = new int[ResourceModule.ResourceType.values().length];
+      this.resourceGround = new int[RESOURCE_TYPES.length];
+      this.resourceGroundInRange = new int[RESOURCE_TYPES.length];
+      this.resourceCarried = new int[RESOURCE_TYPES.length];
+      this.resourceEquipped = new int[RESOURCE_TYPES.length];
 
       ResourceModule.ResourceType[] var5;
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          if (t.getTemplate().getResourceCategory() != ResourceModule.ResourceCategory.RAW
             && t.getTemplate().getResourceCategory() != ResourceModule.ResourceCategory.FOOD_AND_WATER
             && t != ResourceModule.ResourceType.WATER_BUCKET
@@ -431,7 +433,7 @@ public class ResourceModule extends ModuleBase {
          YMLDataMap resourcesBarListMainDataMap = dataMap.getSubMap("resourcesBarList");
 
          ResourceModule.ResourceType[] newResource;
-         for (ResourceModule.ResourceType t : newResource = ResourceModule.ResourceType.values()) {
+         for (ResourceModule.ResourceType t : newResource = RESOURCE_TYPES) {
             this.resourcesBarListMain.put(t, Boolean.parseBoolean(resourcesBarListMainDataMap.getOrDefault(t.toString(), false)));
          }
       }
@@ -440,7 +442,7 @@ public class ResourceModule extends ModuleBase {
          YMLDataMap resourcesBarListMainDataMap = dataMap.getSubMap("resourcesBarListMain");
 
          ResourceModule.ResourceType[] var40;
-         for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+         for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
             this.resourcesBarListMain.put(t, Boolean.parseBoolean(resourcesBarListMainDataMap.getOrDefault(t.toString(), false)));
          }
       }
@@ -502,7 +504,7 @@ public class ResourceModule extends ModuleBase {
       YMLDataMap maintainAmountsMap = dataMap.getSubMap("resourceMaintainAmounts");
 
       ResourceModule.ResourceType[] var46;
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          this.resourceMakeAmounts[t.ordinal()] = Integer.parseInt(makeAmountsMap.getOrDefault(t.toString(), "0"));
          this.resourceMaintainAmounts[t.ordinal()] = Integer.parseInt(maintainAmountsMap.getOrDefault(t.toString(), "0"));
       }
@@ -603,7 +605,7 @@ public class ResourceModule extends ModuleBase {
       Map<String, Object> resourcesBarListMainDataMap = new HashMap<>();
 
       ResourceModule.ResourceType[] makeAmountsMap;
-      for (ResourceModule.ResourceType t : makeAmountsMap = ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : makeAmountsMap = RESOURCE_TYPES) {
          resourcesBarListMainDataMap.put(t.toString(), this.resourcesBarListMain.get(t));
       }
 
@@ -639,7 +641,7 @@ public class ResourceModule extends ModuleBase {
       YMLDataMap maintainAmountsMapx = new YMLDataMap();
 
       ResourceModule.ResourceType[] var11;
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          makeAmountsMapx.put(t.toString(), this.resourceMakeAmounts[t.ordinal()]);
          maintainAmountsMapx.put(t.toString(), this.resourceMaintainAmounts[t.ordinal()]);
       }
@@ -684,7 +686,7 @@ public class ResourceModule extends ModuleBase {
       this.resourceColorMap = new EnumMap<>(ResourceModule.ResourceType.class);
 
       ResourceModule.ResourceType[] var4;
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          this.resourceColorMap.put(t, new EnumMap<>(ResourceModule.ResourceColorSet.class));
       }
 
@@ -942,7 +944,7 @@ public class ResourceModule extends ModuleBase {
       this.resourceRaresWeight = new EnumMap<>(ResourceModule.ResourceType.class);
 
       ResourceModule.ResourceType[] var4;
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          this.resourceRares.put(t, new ArrayList<>());
          this.resourceRaresWeight.put(t, 0);
       }
@@ -961,11 +963,11 @@ public class ResourceModule extends ModuleBase {
       this.resourcesProvisioner.clear();
 
       ResourceModule.ResourceType[] var5;
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          this.resourcesProvisionerByType.get(t).clear();
       }
 
-      for (ResourceModule.ResourceType t : ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType t : RESOURCE_TYPES) {
          allowedTypes.put(t, 50);
       }
 
@@ -979,7 +981,7 @@ public class ResourceModule extends ModuleBase {
          boolean foundType = false;
 
          while (!foundType) {
-            ResourceModule.ResourceType type = ResourceModule.ResourceType.values()[Utilities.randomInt(ResourceModule.ResourceType.values().length)];
+            ResourceModule.ResourceType type = RESOURCE_TYPES[Utilities.randomInt(RESOURCE_TYPES.length)];
             if (allowedTypes.containsKey(type) && Utilities.randomInt(allowedTypes.get(type)) == 0) {
                foundType = true;
                this.resource.createResourceProvisioner(type);
@@ -1559,7 +1561,7 @@ public class ResourceModule extends ModuleBase {
 
    private void updateResourceCount() {
       ResourceModule.ResourceType[] objectFlags;
-      for (ResourceModule.ResourceType type : objectFlags = ResourceModule.ResourceType.values()) {
+      for (ResourceModule.ResourceType type : objectFlags = RESOURCE_TYPES) {
          this.resourceStores[type.ordinal()] = 0;
          this.resourceStoresSpace[type.ordinal()] = 0;
          this.resourceGround[type.ordinal()] = 0;
@@ -1669,7 +1671,7 @@ public class ResourceModule extends ModuleBase {
                   * ResourceModule.ResourceType.GOLD_COIN_SACK.getTemplate().getUsesMax();
 
             ResourceModule.ResourceType[] total;
-            for (ResourceModule.ResourceType t : total = ResourceModule.ResourceType.values()) {
+            for (ResourceModule.ResourceType t : total = RESOURCE_TYPES) {
                if (t.getTemplate().getWaterPerUse() > 0) {
                   this.maximumAvailableWater = this.maximumAvailableWater
                      + objectFlagsx.getResourceStorageMax().get(t) * t.getTemplate().getUsesMax() * t.getTemplate().getWaterPerUse();
@@ -1690,7 +1692,7 @@ public class ResourceModule extends ModuleBase {
       this.resourceGatherSpacingTick++;
       if (this.resourceGatherSpacingTick >= this.resourceGatherSpacing) {
          ResourceModule.ResourceType[] var26;
-         for (ResourceModule.ResourceType typex : ResourceModule.ResourceType.values()) {
+         for (ResourceModule.ResourceType typex : RESOURCE_TYPES) {
             int currentTotalValue = this.resource.getResourceTotal(typex, true);
             int newRate = 0;
             if (this.resourceGatherHistory.get(typex).size() > 0) {
@@ -1844,8 +1846,8 @@ public class ResourceModule extends ModuleBase {
    }
 
    public ResourceModule.ResourceType getRandomResourceType() {
-      int randomDelivery = Utilities.randomInt(ResourceModule.ResourceType.values().length);
-      return ResourceModule.ResourceType.values()[randomDelivery];
+      int randomDelivery = Utilities.randomInt(RESOURCE_TYPES.length);
+      return RESOURCE_TYPES[randomDelivery];
    }
 
    public ResourceModule.ResourceType getCrop(ResourceBase r) {

@@ -30,6 +30,7 @@ public class Text {
    public static void initializeLanguage() {
       availableLocalizations.clear();
       text = new HashMap<>();
+      textCache.clear();
       System.out.println("Fetching local language files.");
       File folderList = new File("localization/");
 
@@ -203,14 +204,30 @@ public class Text {
       variableText.put(k, Double.toString(v));
    }
 
+   /** key -> its template (or MISSING), so lookups don't build key + ".text" each time. */
+   private static final java.util.concurrent.ConcurrentHashMap<String, String> textCache = new java.util.concurrent.ConcurrentHashMap<>();
+   private static final String MISSING = new String(" missing");
+
    public static String getText(String key) {
       if (!languageInitialized) {
          initializeLanguage();
       }
 
-      String out = text.get(key + ".text");
+      String out = textCache.get(key);
       if (out == null) {
+         out = text.get(key + ".text");
+         if (out == null) {
+            out = MISSING;
+         }
+
+         textCache.put(key, out);
+      }
+
+      if (out == MISSING) {
          return key;
+      } else if (out.indexOf('{') < 0) {
+         // Most texts have no placeholders: AI tasks look these up every tick for every mob.
+         return out;
       } else {
          for (String k : variableText.keySet()) {
             if (out.contains("{" + k + "}")) {

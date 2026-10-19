@@ -55,6 +55,8 @@ public class RtrGdxGame extends GdxSlickApp {
                d.setProperty("particleAmount", "1");
                d.setProperty("mainMenuDrift", "false");
                rtr.SettingsParser.platformDefaults = d;
+               // Decode sound effects when first played instead of all of them at start-up.
+               rtr.SoundModule.lazySounds = true;
             }
 
             try {

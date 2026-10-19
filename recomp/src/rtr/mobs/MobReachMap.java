@@ -102,8 +102,10 @@ public class MobReachMap {
                   completedSearch = true;
                }
 
-               this.sweepList.addAll(this.setList);
-               this.setList.clear();
+               // Swap instead of copying the next frontier (addAll copied it into a fresh array every step).
+               ArrayList<OrderedPair> next = this.setList;
+               this.setList = this.sweepList;
+               this.sweepList = next;
             }
 
             for (MobBase m : this.mob.getMobArray()) {
@@ -183,8 +185,10 @@ public class MobReachMap {
                completedSearch = true;
             }
 
-            this.sweepList.addAll(this.setList);
-            this.setList.clear();
+            // Swap instead of copying the next frontier (addAll copied it into a fresh array every step).
+            ArrayList<OrderedPair> next = this.setList;
+            this.setList = this.sweepList;
+            this.sweepList = next;
          }
 
          this.sweepList.clear();

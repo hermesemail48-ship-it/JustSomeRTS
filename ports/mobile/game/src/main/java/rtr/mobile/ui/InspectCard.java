@@ -89,7 +89,11 @@ public final class InspectCard {
       ObjectFlags f = o.getObjectFlags();
       int bars = objectBars(o).size();
       boolean workers = f.getSubType() == ObjectBase.ObjectSubType.BUILT && p.getWorkers(o) != null;
-      return top + (bars + 1) / 2 * u * BAR_ROW + (workers ? u * 0.8F : 0.0F) + u * 0.75F + u * 0.15F;
+      ObjectBase.ObjectSubType st = f.getSubType();
+      boolean buttons = f.allowPause()
+         || st == ObjectBase.ObjectSubType.BUILT && f.canUpgrade()
+         || o.isInRange() && f.allowDismantle() && st != ObjectBase.ObjectSubType.DISMANTLE;
+      return top + (bars + 1) / 2 * u * BAR_ROW + (workers ? u * 0.8F : 0.0F) + (buttons ? u * 0.75F : 0.0F) + u * 0.15F;
    }
 
    private static ArrayList<Object[]> objectBars(ObjectBase o) {

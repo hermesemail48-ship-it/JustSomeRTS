@@ -211,12 +211,43 @@ public class MobSpriteLoader {
       this.loadMobOneGender(type, MobBase.MobGender.FEMALE, template, spritePositionFemale);
    }
 
+   /**
+    * Sprite sheets of every mob type used to be cut up at start-up (dozens of type/gender combinations, thousands of
+    * Image objects each), though a game only meets a few of them. They are now registered here and cut up the first
+    * time a mob of that type is created.
+    */
+   private final EnumMap<MobBase.MobType, EnumMap<MobBase.MobGender, Integer>> pendingSheets = new EnumMap<>(MobBase.MobType.class);
+
    private void loadMobOneGender(MobBase.MobType type, MobBase.MobGender gender, MobSpriteTemplateBase template, int spritePosition) throws SlickException {
       if (!this.spriteTemplates.containsKey(type)) {
          this.spriteTemplates.put(type, new EnumMap<>(MobBase.MobGender.class));
       }
 
       this.spriteTemplates.get(type).put(gender, template);
+      if (this.baseArtSpriteSheets.get(type) == null) {
+         this.baseArtSpriteSheets.put(type, new EnumMap<>(MobBase.MobGender.class));
+      }
+
+      if (this.shadowSpriteSheets.get(type) == null) {
+         this.shadowSpriteSheets.put(type, new EnumMap<>(MobBase.MobGender.class));
+      }
+
+      if (!this.pendingSheets.containsKey(type)) {
+         this.pendingSheets.put(type, new EnumMap<>(MobBase.MobGender.class));
+      }
+
+      this.pendingSheets.get(type).put(gender, spritePosition);
+   }
+
+   private synchronized void ensureLoaded(MobBase.MobType type, MobBase.MobGender gender) throws SlickException {
+      EnumMap<MobBase.MobGender, Integer> pending = this.pendingSheets.get(type);
+      Integer spritePosition = pending == null ? null : pending.remove(gender);
+      if (spritePosition != null) {
+         this.cutSheets(type, gender, this.spriteTemplates.get(type).get(gender), spritePosition);
+      }
+   }
+
+   private void cutSheets(MobBase.MobType type, MobBase.MobGender gender, MobSpriteTemplateBase template, int spritePosition) throws SlickException {
       int layers = this.spriteTemplates.get(type).get(gender).getLayers();
       SpriteSheet baseArtSheet = new SpriteSheet(ImageLoader.getImage("res/mobs/" + spritePosition + ".png"), 128, 1616);
       SpriteSheet shadowSheet = new SpriteSheet(ImageLoader.getImage("res/mobs/" + spritePosition + "shadow.png"), 32, 16);
@@ -280,6 +311,11 @@ public class MobSpriteLoader {
    }
 
    public MobSprite createNewMobSprite(MobBase.MobType type, MobBase.MobGender gender) throws SlickException {
+      this.ensureLoaded(type, gender);
+      if (this.baseArtSpriteSheets.get(type).get(gender) == null) {
+         this.ensureLoaded(type, MobBase.MobGender.NONE);
+      }
+
       return this.baseArtSpriteSheets.get(type).get(gender) != null
          ? new MobSprite(
             this.shadowSpriteSheets.get(type).get(gender), this.baseArtSpriteSheets.get(type).get(gender), this.spriteTemplates.get(type).get(gender)

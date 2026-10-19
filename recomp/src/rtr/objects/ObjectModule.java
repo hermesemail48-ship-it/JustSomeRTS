@@ -1209,10 +1209,14 @@ public class ObjectModule extends ModuleBase {
       int tileX = mob.getTileX();
       int tileY = mob.getTileY();
       ArrayList<ObjectBase> list = new ArrayList<>();
+      // Walk the cached circle offsets directly instead of building a list of every coordinate in range.
+      int[] offsets = Utilities.getOffsetsWithin(distance);
 
-      for (OrderedPair c : Utilities.getAllCoordinatesWithin(tileX, tileY, distance)) {
-         if (this.isObject(c.getX(), c.getY())) {
-            ObjectBase o = this.objectMap[c.getX()][c.getY()];
+      for (int i = 0; i < offsets.length; i += 2) {
+         int cx = tileX + offsets[i];
+         int cy = tileY + offsets[i + 1];
+         if (cx >= 0 && cy >= 0 && cx < 256 && cy < 256 && this.isObject(cx, cy)) {
+            ObjectBase o = this.objectMap[cx][cy];
             if (mob.canReach(o) && !list.contains(o)) {
                list.add(o);
             }

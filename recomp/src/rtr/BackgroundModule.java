@@ -102,15 +102,20 @@ public class BackgroundModule extends ModuleBase {
    protected void loadWorldSaveData() throws SlickException {
    }
 
+   private int particlePhase;
+
    public void update() {
       if (SettingsParser.getBackground()) {
-         for (int x = 0; x < 10000; x++) {
+         // Half of the 10,000 drifting background particles per tick, each moved two ticks' worth.
+         this.particlePhase ^= 1;
+
+         for (int x = this.particlePhase; x < 10000; x += 2) {
             if (this.particleX[x] >= 4196.0F) {
                this.particleX[x] = Utilities.randomInt(20) - 100;
                this.particleY[x] = Utilities.randomInt(4096) & -2;
             } else {
-               this.particleX[x] = this.particleX[x] + this.particleSpeedX[x];
-               this.particleY[x] = this.particleY[x] + this.particleSpeedY[x];
+               this.particleX[x] = this.particleX[x] + this.particleSpeedX[x] * 2.0F;
+               this.particleY[x] = this.particleY[x] + this.particleSpeedY[x] * 2.0F;
             }
          }
       }

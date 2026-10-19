@@ -41,6 +41,24 @@ public class SoundModule extends ModuleBase {
    private static boolean musicLoaded;
    private static boolean[] banksLoaded = new boolean[2];
    private static boolean soundLoaded;
+   /** Set by the phone port: load sound effects on first use. */
+   public static boolean lazySounds = false;
+
+   /** The loaded sounds of a type, loading them now if needed. */
+   private static ArrayList<Sound> sounds(SoundModule.SoundType type) {
+      ArrayList<Sound> s = soundEffects.get(type);
+      if (s == null) {
+         try {
+            loadSound(type);
+         } catch (SlickException e) {
+            throw new RuntimeException("Cannot load sound " + type, e);
+         }
+
+         s = soundEffects.get(type);
+      }
+
+      return s;
+   }
 
    @Override
    public void initModule(ModuleBase.ModuleType mT, StateBase cS) throws SlickException {
@@ -72,7 +90,14 @@ public class SoundModule extends ModuleBase {
          loadMusic("Underworld", "underworld", this.getSeconds(3, 57));
          loadMusic("Wild Desert", "wildDesert", this.getSeconds(2, 26));
          loadMusic("Winter is Nigh", "winterIsNigh", this.getSeconds(3, 12));
-         this.startThreadedSoundLoad();
+         if (lazySounds) {
+            // Phones: each sound type is decoded the first time it plays (see sounds()), instead of all ~60 MB of
+            // effects being decoded by a background thread at start-up.
+            soundLoaded = true;
+         } else {
+            this.startThreadedSoundLoad();
+         }
+
          musicLoaded = true;
       }
 
@@ -88,7 +113,7 @@ public class SoundModule extends ModuleBase {
             try {
                SoundModule.SoundType[] var4;
                for (SoundModule.SoundType t : SoundModule.SoundType.values()) {
-                  SoundModule.this.loadSound(t);
+                  SoundModule.loadSound(t);
                }
 
                SoundModule.soundLoaded = true;
@@ -108,9 +133,8 @@ public class SoundModule extends ModuleBase {
       this.musicDelayTick = 0;
       this.musicCurrent = this.riseToRuins;
       if (soundLoaded && soundEffects.size() > 0) {
-         SoundModule.SoundType[] var4;
-         for (SoundModule.SoundType soundTypes : SoundModule.SoundType.values()) {
-            for (Sound sound : soundEffects.get(soundTypes)) {
+         for (ArrayList<Sound> loaded : soundEffects.values()) {
+            for (Sound sound : loaded) {
                sound.stop();
             }
          }
@@ -157,10 +181,9 @@ public class SoundModule extends ModuleBase {
    }
 
    public void playSound(SoundModule.SoundType type) throws SlickException {
-      ArrayList<Sound> currentSounds = soundEffects.get(type);
-      if (!soundLoaded && currentSounds == null || currentSounds.size() == 0) {
-         this.loadSound(type);
-         currentSounds = soundEffects.get(type);
+      ArrayList<Sound> currentSounds = sounds(type);
+      if (currentSounds.size() == 0) {
+         return;
       }
 
       if (soundEffectsBuffer.get(type) < type.getMaxSimultaneous()) {
@@ -175,10 +198,9 @@ public class SoundModule extends ModuleBase {
    }
 
    public void playSound(SoundModule.SoundType type, float x, float y) throws SlickException {
-      ArrayList<Sound> currentSounds = soundEffects.get(type);
-      if (!soundLoaded && currentSounds == null || currentSounds.size() == 0) {
-         this.loadSound(type);
-         currentSounds = soundEffects.get(type);
+      ArrayList<Sound> currentSounds = sounds(type);
+      if (currentSounds.size() == 0) {
+         return;
       }
 
       if (soundEffectsBuffer.get(type) < type.getMaxSimultaneous()) {
@@ -193,7 +215,7 @@ public class SoundModule extends ModuleBase {
       }
    }
 
-   private void loadSound(SoundModule.SoundType type) throws SlickException {
+   private static void loadSound(SoundModule.SoundType type) throws SlickException {
       ArrayList<Sound> currentSounds = new ArrayList<>();
       if (type.isSingle()) {
          String path = "res/sounds/" + type.getFileName() + ".ogg";
@@ -234,8 +256,8 @@ public class SoundModule extends ModuleBase {
    public void playRain() {
       if (soundLoaded) {
          this.rainTick++;
-         if (this.rainTick > 400 || this.rainTick > 200 && Utilities.randomInt(200) == 0 || !soundEffects.get(SoundModule.SoundType.RAIN).get(0).playing()) {
-            soundEffects.get(SoundModule.SoundType.RAIN).get(0).play(1.0F, this.soundVolume / 20.0F);
+         if (this.rainTick > 400 || this.rainTick > 200 && Utilities.randomInt(200) == 0 || !sounds(SoundModule.SoundType.RAIN).get(0).playing()) {
+            sounds(SoundModule.SoundType.RAIN).get(0).play(1.0F, this.soundVolume / 20.0F);
             this.rainTick = 0;
          }
       }
@@ -243,21 +265,21 @@ public class SoundModule extends ModuleBase {
 
    public void stopRain() {
       if (soundLoaded) {
-         soundEffects.get(SoundModule.SoundType.RAIN).get(0).stop();
+         sounds(SoundModule.SoundType.RAIN).get(0).stop();
       }
    }
 
    public void playChestRoll() {
       if (soundLoaded) {
-         if (!soundEffects.get(SoundModule.SoundType.CHEST_REWARD_BAR_ROLL).get(0).playing()) {
-            soundEffects.get(SoundModule.SoundType.CHEST_REWARD_BAR_ROLL).get(0).play(1.0F, this.soundVolume);
+         if (!sounds(SoundModule.SoundType.CHEST_REWARD_BAR_ROLL).get(0).playing()) {
+            sounds(SoundModule.SoundType.CHEST_REWARD_BAR_ROLL).get(0).play(1.0F, this.soundVolume);
          }
       }
    }
 
    public void stopChestRoll() {
       if (soundLoaded) {
-         soundEffects.get(SoundModule.SoundType.CHEST_REWARD_BAR_ROLL).get(0).stop();
+         sounds(SoundModule.SoundType.CHEST_REWARD_BAR_ROLL).get(0).stop();
       }
    }
 
@@ -322,7 +344,7 @@ public class SoundModule extends ModuleBase {
          }
 
          if (soundLoaded && corruptionPercent > 1) {
-            Sound ambientCorruption = soundEffects.get(SoundModule.SoundType.CORRUPTION_AMBIENT).get(0);
+            Sound ambientCorruption = sounds(SoundModule.SoundType.CORRUPTION_AMBIENT).get(0);
             float volume = SettingsParser.getSoundVolume() / 25.0F;
             volume = (float)(corruptionPercent / 100.0) * volume;
             if (!ambientCorruption.playing()) {
@@ -331,7 +353,7 @@ public class SoundModule extends ModuleBase {
 
             ambientCorruption.setGain(volume);
          } else if (soundLoaded) {
-            Sound ambientCorruption = soundEffects.get(SoundModule.SoundType.CORRUPTION_AMBIENT).get(0);
+            Sound ambientCorruption = sounds(SoundModule.SoundType.CORRUPTION_AMBIENT).get(0);
             ambientCorruption.stop();
          }
 
@@ -372,19 +394,19 @@ public class SoundModule extends ModuleBase {
             } else {
                this.windVolume -= 0.01F;
             }
-         } else if (this.windVolume * this.soundVolume <= 0.0F && soundEffects.get(SoundModule.SoundType.ZOOM_WIND).get(0).playing()) {
-            soundEffects.get(SoundModule.SoundType.ZOOM_WIND).get(0).stop();
+         } else if (this.windVolume * this.soundVolume <= 0.0F && sounds(SoundModule.SoundType.ZOOM_WIND).get(0).playing()) {
+            sounds(SoundModule.SoundType.ZOOM_WIND).get(0).stop();
          }
 
-         soundEffects.get(SoundModule.SoundType.ZOOM_WIND).get(0).setGain(this.windVolume * this.soundVolume);
-         if (!soundEffects.get(SoundModule.SoundType.ZOOM_WIND).get(0).playing()) {
-            soundEffects.get(SoundModule.SoundType.ZOOM_WIND).get(0).play(1.0F, this.windVolume * this.soundVolume);
+         sounds(SoundModule.SoundType.ZOOM_WIND).get(0).setGain(this.windVolume * this.soundVolume);
+         if (!sounds(SoundModule.SoundType.ZOOM_WIND).get(0).playing()) {
+            sounds(SoundModule.SoundType.ZOOM_WIND).get(0).play(1.0F, this.windVolume * this.soundVolume);
          }
 
          int tileCenterX = (int)((ScaleControl.getWorldWidth() / 2 - this.map.getMapX()) / 16.0F);
          int tileCenterY = (int)((ScaleControl.getWorldHeight() / 2 - this.map.getMapY()) / 16.0F);
          ArrayList<MobBase> mobsAtCenter = this.mob.getMobsNearby(tileCenterX, tileCenterY, 24, MobBase.MobGroup.VILLAGER);
-         ArrayList<Sound> villagers = soundEffects.get(SoundModule.SoundType.ENVIROMENTAL_VILLAGERS);
+         ArrayList<Sound> villagers = sounds(SoundModule.SoundType.ENVIROMENTAL_VILLAGERS);
          float volume = mobsAtCenter.size() / 40.0F * this.getGameWorldVolumeVariance();
          if (volume > this.getGameWorldVolumeVariance()) {
             volume = this.getGameWorldVolumeVariance();
@@ -409,7 +431,7 @@ public class SoundModule extends ModuleBase {
             }
          }
 
-         ArrayList<Sound> buildings = soundEffects.get(SoundModule.SoundType.ENVIROMENTAL_BUILDINGS);
+         ArrayList<Sound> buildings = sounds(SoundModule.SoundType.ENVIROMENTAL_BUILDINGS);
          volume = completedBuildings.size() / 25.0F * this.getGameWorldVolumeVariance();
          if (volume > this.getGameWorldVolumeVariance()) {
             volume = this.getGameWorldVolumeVariance();
@@ -420,7 +442,7 @@ public class SoundModule extends ModuleBase {
          }
 
          buildings.get(0).setGain(volume);
-         ArrayList<Sound> construction = soundEffects.get(SoundModule.SoundType.ENVIROMENTAL_CONSTRUCTION);
+         ArrayList<Sound> construction = sounds(SoundModule.SoundType.ENVIROMENTAL_CONSTRUCTION);
          volume = constructionBuildings.size() / 5.0F * this.getGameWorldVolumeVariance();
          if (volume > this.getGameWorldVolumeVariance()) {
             volume = this.getGameWorldVolumeVariance();

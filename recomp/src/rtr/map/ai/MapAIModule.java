@@ -239,6 +239,9 @@ public class MapAIModule extends ModuleBase {
       }
    }
 
+   private static final int TILE_UPDATE_STRIDE = 16;
+   private int tileUpdatePhase;
+
    public void update() throws SlickException {
       for (SpreadTile s : this.spreadListAdd) {
          this.spreadListArray.add(s);
@@ -267,12 +270,16 @@ public class MapAIModule extends ModuleBase {
       this.spreadListRemove.clear();
       this.regrowListRemove.clear();
 
-      for (SpreadTile s : this.spreadListArray) {
-         s.update();
+      // Thousands of tiles mostly just count down to their next growth roll; update a sixteenth of them each tick,
+      // sixteen ticks at a time (same growth rates, a sixteenth of the work).
+      this.tileUpdatePhase = (this.tileUpdatePhase + 1) % TILE_UPDATE_STRIDE;
+
+      for (int i = this.tileUpdatePhase; i < this.spreadListArray.size(); i += TILE_UPDATE_STRIDE) {
+         this.spreadListArray.get(i).update(TILE_UPDATE_STRIDE);
       }
 
-      for (RegrowTile r : this.regrowListArray) {
-         r.update();
+      for (int i = this.tileUpdatePhase; i < this.regrowListArray.size(); i += TILE_UPDATE_STRIDE) {
+         this.regrowListArray.get(i).update(TILE_UPDATE_STRIDE);
       }
 
       this.updateEssenceBuildup();

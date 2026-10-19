@@ -36,8 +36,13 @@ public class RegrowTile {
    }
 
    public void update() throws SlickException {
+      this.update(1);
+   }
+
+   /** Advances this tile by several ticks at once (MapAIModule updates a slice of the tiles each tick). */
+   public void update(int steps) throws SlickException {
       if (!this.onlyIfMotivated || this.motivatedAmount > 0) {
-         if (this.motivatedAmount > 0) {
+         for (int step = 0; step < steps && this.motivatedAmount > 0; step++) {
             if (this.motivatedAmount > 4000) {
                if (Utilities.randomInt(5) == 0) {
                   this.particle
@@ -72,7 +77,7 @@ public class RegrowTile {
             }
          }
 
-         this.tryRegrowTick++;
+         this.tryRegrowTick += steps;
          if (this.tryRegrowTick >= this.tryRegrow) {
             this.tryRegrowTick = 0;
             int calculatedRegrowChance = this.regrowChance;

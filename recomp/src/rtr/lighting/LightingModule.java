@@ -191,7 +191,14 @@ public class LightingModule extends ModuleBase {
       this.setLightLevel();
       this.adjustLightLevel();
       this.adjustLightColor();
-      this.fillLightValueExtrasNew();
+      // The light grid (256x256) is rebuilt and faded every third tick, three steps at a time: the same fade speed for
+      // a third of the work (lights still follow mobs 20 times a second).
+      this.lightGridTick = (this.lightGridTick + 1) % LIGHT_GRID_STRIDE;
+      this.lightGridPhase = this.lightGridTick == 0;
+      if (this.lightGridPhase) {
+         this.fillLightValueExtrasNew();
+      }
+
       ArrayList<Light> shortTermLightsRemove = new ArrayList<>();
 
       for (Light l : this.shortTermLights) {
@@ -206,16 +213,28 @@ public class LightingModule extends ModuleBase {
          this.updateLightMapFinalize();
       }
 
-      for (int x = 0; x < this.mapWidth; x++) {
-         for (int y = 0; y < this.mapHeight; y++) {
-            if (this.lightValueBase[x][y] < this.lightValueExtrasNew[x][y] + this.lightValueMapNewCurrent[x][y]) {
-               this.lightValueBase[x][y]++;
-            } else if (this.lightValueBase[x][y] > this.lightValueExtrasNew[x][y] + this.lightValueMapNewCurrent[x][y]) {
-               this.lightValueBase[x][y]--;
+      if (this.lightGridPhase) {
+         for (int x = 0; x < this.mapWidth; x++) {
+            int[] base = this.lightValueBase[x];
+            int[] extras = this.lightValueExtrasNew[x];
+            int[] mapLight = this.lightValueMapNewCurrent[x];
+
+            for (int y = 0; y < this.mapHeight; y++) {
+               int target = extras[y] + mapLight[y];
+               int v = base[y];
+               if (v < target) {
+                  base[y] = v + LIGHT_GRID_STRIDE > target ? target : v + LIGHT_GRID_STRIDE;
+               } else if (v > target) {
+                  base[y] = v - LIGHT_GRID_STRIDE < target ? target : v - LIGHT_GRID_STRIDE;
+               }
             }
          }
       }
    }
+
+   private boolean lightGridPhase;
+   private int lightGridTick;
+   private static final int LIGHT_GRID_STRIDE = 3;
 
    public void render(Graphics g) throws SlickException {
       int displayWidth = ScaleControl.getWorldWidth();

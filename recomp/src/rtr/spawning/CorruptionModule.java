@@ -478,48 +478,45 @@ public class CorruptionModule extends ModuleBase {
          }
       }
 
-      ArrayList<OrderedPair> allOpenTiles = new ArrayList<>();
-
-      for (int x = 0; x < this.corruptedTiles.length; x++) {
-         for (int y = 0; y < this.corruptedTiles.length; y++) {
-            if (this.corruptedTiles[x][y] == 1 && this.openArea(x, y, false)) {
-               allOpenTiles.add(OrderedPair.getOrderedPair(x, y));
-            }
-         }
+      // Spreading and retracting only happen on a small random fraction of ticks, so roll for them first and only
+      // scan the 256x256 corruption grid when one will be attempted (it used to be scanned every tick).
+      int spreadChance = 30;
+      if (this.corruptionDesiredAmount - this.corruptedTilesArray.size() > this.corruptionDesiredAmountPerDay * 4) {
+         spreadChance /= 8;
+      } else if (this.corruptionDesiredAmount - this.corruptedTilesArray.size() > this.corruptionDesiredAmountPerDay * 3) {
+         spreadChance /= 6;
+      } else if (this.corruptionDesiredAmount - this.corruptedTilesArray.size() > this.corruptionDesiredAmountPerDay * 2) {
+         spreadChance /= 4;
+      } else if (this.corruptionDesiredAmount - this.corruptedTilesArray.size() > this.corruptionDesiredAmountPerDay) {
+         spreadChance /= 2;
       }
 
-      if (allOpenTiles.size() > 0) {
-         boolean trySpread = false;
-         boolean tryRetract = false;
+      boolean rollSpread = this.corruptedTilesArray.size() > 0
+         && this.corruptedTilesArray.size() < this.corruptionDesiredAmount
+         && Utilities.randomInt(spreadChance) == 0;
+      boolean rollRetract = this.corruptedTilesArray.size() > 0 && Utilities.randomInt(16) == 0;
+      if (rollSpread || rollRetract) {
          ArrayList<OrderedPair> nonThreatenedTiles = new ArrayList<>();
-         nonThreatenedTiles.addAll(allOpenTiles);
          ArrayList<OrderedPair> threatenedTiles = new ArrayList<>();
+         int[][] resistance = this.object.getRangeMap(RangeBuilder.RangeMapLayer.CORRUPTION_RESISTANCE);
 
-         for (OrderedPair ox : allOpenTiles) {
-            int tileX = ox.getX();
-            int tileY = ox.getY();
-            if (this.object.getRangeMap(RangeBuilder.RangeMapLayer.CORRUPTION_RESISTANCE)[tileX][tileY] != 0 && !threatenedTiles.contains(ox)) {
-               threatenedTiles.add(ox);
-               nonThreatenedTiles.remove(ox);
+         for (int x = 0; x < this.corruptedTiles.length; x++) {
+            for (int y = 0; y < this.corruptedTiles.length; y++) {
+               if (this.corruptedTiles[x][y] == 1 && this.openArea(x, y, false)) {
+                  if (resistance[x][y] != 0) {
+                     threatenedTiles.add(OrderedPair.getOrderedPair(x, y));
+                  } else {
+                     nonThreatenedTiles.add(OrderedPair.getOrderedPair(x, y));
+                  }
+               }
             }
          }
 
-         int spreadChance = 30;
-         if (this.corruptionDesiredAmount - this.corruptedTilesArray.size() > this.corruptionDesiredAmountPerDay * 4) {
-            spreadChance /= 8;
-         } else if (this.corruptionDesiredAmount - this.corruptedTilesArray.size() > this.corruptionDesiredAmountPerDay * 3) {
-            spreadChance /= 6;
-         } else if (this.corruptionDesiredAmount - this.corruptedTilesArray.size() > this.corruptionDesiredAmountPerDay * 2) {
-            spreadChance /= 4;
-         } else if (this.corruptionDesiredAmount - this.corruptedTilesArray.size() > this.corruptionDesiredAmountPerDay) {
-            spreadChance /= 2;
-         }
-
-         if (nonThreatenedTiles.size() > 0 && this.corruptedTilesArray.size() < this.corruptionDesiredAmount && Utilities.randomInt(spreadChance) == 0) {
-            trySpread = true;
-         }
-
-         if ((this.corruptedTilesArray.size() > this.corruptionDesiredAmount || threatenedTiles.size() > 0) && Utilities.randomInt(16) == 0) {
+         boolean trySpread = rollSpread && nonThreatenedTiles.size() > 0;
+         boolean tryRetract = false;
+         if (rollRetract
+            && (nonThreatenedTiles.size() > 0 || threatenedTiles.size() > 0)
+            && (this.corruptedTilesArray.size() > this.corruptionDesiredAmount || threatenedTiles.size() > 0)) {
             int tryRetractChance = 1;
             if (this.corruptedTilesArray.size() < this.corruptionDesiredAmount) {
                tryRetractChance += Math.abs(this.corruptedTilesArray.size() - this.corruptionDesiredAmount) / 1500;

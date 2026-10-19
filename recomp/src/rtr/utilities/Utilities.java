@@ -185,12 +185,24 @@ public class Utilities {
       return list;
    }
 
-   public static ArrayList<OrderedPair> getAllCoordinatesWithin(int centerX, int centerY, int distance) {
-      ArrayList<OrderedPair> list = new ArrayList<>();
+   /**
+    * Relative offsets (x, y pairs) of every tile getAllCoordinatesWithin returns for a distance, in its original order.
+    * Callers ask for the same few distances thousands of times, so the shape is computed once per distance.
+    */
+   private static final java.util.concurrent.ConcurrentHashMap<Integer, int[]> WITHIN_OFFSETS = new java.util.concurrent.ConcurrentHashMap<>();
+
+   public static int[] getOffsetsWithin(int distance) {
+      int[] cached = WITHIN_OFFSETS.get(distance);
+      if (cached != null) {
+         return cached;
+      }
+
       int x = distance;
       int y = distance;
       int endX = distance + 1;
       int endY = distance + 1;
+      int[] out = new int[Math.max(8, (distance * 2 + 1) * (distance * 2 + 1) * 2)];
+      int n = 0;
 
       for (int x2 = 0; x2 < endX; x2++) {
          for (int y2 = 0; y2 < endY; y2++) {
@@ -198,41 +210,39 @@ public class Utilities {
             int dy = y - y2;
             int hValue = (int)Math.sqrt(dx * dx + dy * dy);
             if (hValue < distance) {
-               int shiftX = centerX - distance;
-               int shiftY = centerY - distance;
-               OrderedPair o = null;
-               OrderedPair o2 = null;
-               OrderedPair o3 = null;
-               OrderedPair o4 = null;
-               o = OrderedPair.getOrderedPair(shiftX + x2, shiftY + y2);
+               out[n++] = x2 - distance;
+               out[n++] = y2 - distance;
                if (x2 != endX - 1) {
-                  o2 = OrderedPair.getOrderedPair(shiftX + x2 * -1 + distance * 2, shiftY + y2);
+                  out[n++] = -x2 + distance;
+                  out[n++] = y2 - distance;
                }
 
                if (y2 != endY - 1) {
-                  o3 = OrderedPair.getOrderedPair(shiftX + x2, shiftY + y2 * -1 + distance * 2);
+                  out[n++] = x2 - distance;
+                  out[n++] = -y2 + distance;
                }
 
                if (x2 != endX - 1 && y2 != endY - 1) {
-                  o4 = OrderedPair.getOrderedPair(shiftX + x2 * -1 + distance * 2, shiftY + y2 * -1 + distance * 2);
-               }
-
-               if (o != null) {
-                  list.add(o);
-               }
-
-               if (o2 != null) {
-                  list.add(o2);
-               }
-
-               if (o3 != null) {
-                  list.add(o3);
-               }
-
-               if (o4 != null) {
-                  list.add(o4);
+                  out[n++] = -x2 + distance;
+                  out[n++] = -y2 + distance;
                }
             }
+         }
+      }
+
+      int[] offsets = java.util.Arrays.copyOf(out, n);
+      WITHIN_OFFSETS.put(distance, offsets);
+      return offsets;
+   }
+
+   public static ArrayList<OrderedPair> getAllCoordinatesWithin(int centerX, int centerY, int distance) {
+      int[] offsets = getOffsetsWithin(distance);
+      ArrayList<OrderedPair> list = new ArrayList<>(offsets.length / 2);
+
+      for (int i = 0; i < offsets.length; i += 2) {
+         OrderedPair o = OrderedPair.getOrderedPair(centerX + offsets[i], centerY + offsets[i + 1]);
+         if (o != null) {
+            list.add(o);
          }
       }
 

@@ -781,15 +781,21 @@ public class GdxGL implements SGL {
 
    @Override
    public void glPushMatrix() {
-      this.stack.push(new Matrix4(this.modelView));
+      Matrix4 m = this.matrixPool.poll();
+      this.stack.push(m == null ? new Matrix4(this.modelView) : m.set(this.modelView));
    }
 
    @Override
    public void glPopMatrix() {
       if (!this.stack.isEmpty()) {
-         this.modelView.set(this.stack.pop());
+         Matrix4 m = this.stack.pop();
+         this.modelView.set(m);
+         // Reused: the game pushes/pops around almost every sprite.
+         this.matrixPool.push(m);
       }
    }
+
+   private final ArrayDeque<Matrix4> matrixPool = new ArrayDeque<Matrix4>();
 
    @Override
    public void glLoadMatrix(FloatBuffer buffer) {

@@ -4200,11 +4200,15 @@ public class MobBase {
          this.mobX = this.capturedResource.getResourceX();
          this.mobY = this.capturedResource.getResourceY() - this.sprite.getCarriedResourceOffsetY().intValue();
       } else {
-         Utilities.startTimer();
-         String currentNode = this.activeNode.getAIName().toString();
+         long aiStart = System.currentTimeMillis();
+         Object currentNode = this.activeNode.getAIName();
          int currentNodeStep = this.activeNode.getAIStep();
          this.activeNode.execute();
-         Utilities.endTimer(this.mobType + " " + this.mobJobType.name() + " AI " + currentNode + " STEP " + currentNodeStep + " time to execute was high: ", 50);
+         long aiTime = System.currentTimeMillis() - aiStart;
+         if (aiTime > 50L) {
+            // The message is only built when it is logged (it used to be built for every mob every tick).
+            rtr.console.Console.out(this.mobType + " " + this.mobJobType.name() + " AI " + currentNode + " STEP " + currentNodeStep + " time to execute was high: " + aiTime, true);
+         }
       }
    }
 
