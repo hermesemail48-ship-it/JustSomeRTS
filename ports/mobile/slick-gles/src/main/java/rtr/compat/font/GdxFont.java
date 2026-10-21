@@ -12,6 +12,7 @@ import java.util.Map;
  * conventions (cell height = ascent + descent + leading, integer advances for drawing, fractional for measuring).
  */
 public class GdxFont {
+   private static final Color GLYPH_WHITE = new Color(Color.WHITE);
    private static FreeType.Library library;
    private static final Map<String, FreeType.Face> faces = new HashMap<String, FreeType.Face>();
    private final FreeType.Face face;
@@ -113,7 +114,9 @@ public class GdxFont {
 
          FreeType.Bitmap bitmap = slot.getBitmap();
          if (bitmap.getWidth() > 0 && bitmap.getRows() > 0) {
-            Pixmap glyph = bitmap.getPixmap(Pixmap.Format.RGBA8888, Color.WHITE, 1.0F);
+            // A copy of WHITE, not the constant: getPixmap's fast path for Color.WHITE leaves the glyph empty on the
+            // browser backend (gdx-teavm never copies that Alpha pixmap to the native heap). Same pixels elsewhere.
+            Pixmap glyph = bitmap.getPixmap(Pixmap.Format.RGBA8888, GLYPH_WHITE, 1.0F);
             cell.setBlending(Pixmap.Blending.SourceOver);
             cell.drawPixmap(glyph, slot.getBitmapLeft(), this.ascent - slot.getBitmapTop());
             glyph.dispose();

@@ -19,7 +19,7 @@ public class Sound {
    public Sound(String ref) throws SlickException {
       String path = RtrPaths.resolveAudio(ref, ".wav");
       try {
-         FileHandle handle = new File(path).isAbsolute() ? Gdx.files.absolute(path) : Gdx.files.internal(path);
+         FileHandle handle = new File(path).isAbsolute() ? rtr.compat.GdxFiles.absolute(path) : Gdx.files.internal(path);
          synchronized (SoundStore.LOAD_LOCK) {
             this.sound = Gdx.audio.newSound(handle);
          }

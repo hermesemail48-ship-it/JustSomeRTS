@@ -324,7 +324,7 @@ public abstract class GameContainer implements GUIContext {
             }
          } catch (Throwable var7) {
             Log.error(var7);
-            throw new SlickException("Game.update() failure - check the game code.");
+            throw new SlickException("Game.update() failure - check the game code.", var7);
          }
       } else if (!this.paused) {
          this.storedDelta += delta;
@@ -350,7 +350,7 @@ public abstract class GameContainer implements GUIContext {
                }
             } catch (Throwable var6) {
                Log.error(var6);
-               throw new SlickException("Game.update() failure - check the game code.");
+               throw new SlickException("Game.update() failure - check the game code.", var6);
             }
          }
       } else {
@@ -374,7 +374,7 @@ public abstract class GameContainer implements GUIContext {
             rtr.compat.PerfStats.renderNanos += System.nanoTime() - t0;
          } catch (Throwable var5) {
             Log.error(var5);
-            throw new SlickException("Game.render() failure - check the game code.");
+            throw new SlickException("Game.render() failure - check the game code.", var5);
          }
 
          this.graphics.resetTransform();

@@ -115,7 +115,7 @@ public final class Ui {
       float u = this.unit();
       File ttf = new File(RtrPaths.ASSETS + "res/font/PatuaOne-Regular.ttf");
       if (ttf.isFile()) {
-         FreeTypeFontGenerator gen = new FreeTypeFontGenerator(Gdx.files.absolute(ttf.getAbsolutePath()));
+         FreeTypeFontGenerator gen = new FreeTypeFontGenerator(rtr.compat.GdxFiles.absolute(ttf.getAbsolutePath()));
          this.title = this.font(gen, Math.round(u * 0.40F));
          this.body = this.font(gen, Math.round(u * 0.30F));
          this.small = this.font(gen, Math.round(u * 0.24F));
@@ -322,7 +322,7 @@ public final class Ui {
       File f = new File(RtrPaths.ASSETS + assetPath);
       if (f.isFile()) {
          try {
-            t = new Texture(Gdx.files.absolute(f.getAbsolutePath()));
+            t = new Texture(rtr.compat.GdxFiles.absolute(f.getAbsolutePath()));
             t.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
          } catch (RuntimeException e) {
             System.err.println("Phone UI: cannot load " + assetPath + ": " + e);

@@ -411,9 +411,14 @@ public class MapModule extends ModuleBase {
       Graphics g = this.mapFBO.getGraphics();
       g.clear();
 
+      // Port: layer 0 of every tile first, then the upper layers, instead of all layers tile by tile. Tiles are 16x16
+      // on a 16 px grid, so the pixels are the same, but the draw mode (alpha write on/off) switches twice instead of
+      // twice per tile; each switch is a separate draw call (~131k of them, very slow in the browser build).
+      for (int pass = 0; pass < 2; pass++) {
+         g.setDrawMode(pass == 0 ? Graphics.MODE_NORMAL : Graphics.MODE_NORMAL_IGNORE_ALPHA);
       for (int x = 0; x < 256; x++) {
          for (int y = 0; y < 256; y++) {
-            for (int l = 0; l < 12; l++) {
+            for (int l = pass == 0 ? 0 : 1; l < (pass == 0 ? 1 : 12); l++) {
                boolean transparent = false;
                if ((
                      this.data.getDisplayMode() == DataModule.DataDisplayMode.HIDE_TOPOGRAPHY
@@ -421,12 +426,6 @@ public class MapModule extends ModuleBase {
                   )
                   && l >= 6) {
                   transparent = true;
-               }
-
-               if (l >= 1) {
-                  g.setDrawMode(Graphics.MODE_NORMAL_IGNORE_ALPHA);
-               } else {
-                  g.setDrawMode(Graphics.MODE_NORMAL);
                }
 
                Image i = this.mtl.getTiles().get(this.mapArray[x][y][l]);
@@ -442,6 +441,7 @@ public class MapModule extends ModuleBase {
                }
             }
          }
+      }
       }
 
       g.flush();

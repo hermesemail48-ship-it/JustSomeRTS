@@ -8,10 +8,15 @@ import org.newdawn.slick.openal.SoundStore;
 import org.newdawn.slick.util.Log;
 import rtr.compat.RtrPaths;
 
-/** Slick Music on libGDX (streamed). As in Slick, only one Music is "current" at a time. */
+/**
+ * Slick Music on libGDX (streamed). As in Slick, only one Music is "current" at a time. The libGDX music is opened
+ * on first use: the game creates every track at start-up, and in the browser each one would be downloaded and decoded.
+ */
 public class Music {
    private static Music currentMusic;
-   private final com.badlogic.gdx.audio.Music music;
+   private final String ref;
+   private final FileHandle handle;
+   private com.badlogic.gdx.audio.Music music;
    private final ArrayList<MusicListener> listeners = new ArrayList<MusicListener>();
    private boolean playing;
    private float volume = 1.0F;
@@ -47,25 +52,46 @@ public class Music {
    }
 
    public Music(String ref, boolean streamingHint) throws SlickException {
+      this.ref = ref;
       String path = RtrPaths.resolveAudio(ref, ".mp3");
-      try {
-         FileHandle handle = new File(path).isAbsolute() ? Gdx.files.absolute(path) : Gdx.files.internal(path);
-         synchronized (SoundStore.LOAD_LOCK) {
-            this.music = Gdx.audio.newMusic(handle);
-         }
-      } catch (Exception var5) {
-         Log.error(var5);
+      this.handle = new File(path).isAbsolute() ? rtr.compat.GdxFiles.absolute(path) : Gdx.files.internal(path);
+      if (!this.handle.exists()) {
          throw new SlickException("Failed to load music: " + ref);
       }
+   }
 
-      this.music.setOnCompletionListener(new com.badlogic.gdx.audio.Music.OnCompletionListener() {
-         @Override
-         public void onCompletion(com.badlogic.gdx.audio.Music m) {
-            if (!Music.this.music.isLooping()) {
-               Music.this.endedPending = true;
+   /** The libGDX music, opened on first use. */
+   private com.badlogic.gdx.audio.Music gdx() {
+      if (this.music == null) {
+         try {
+            synchronized (SoundStore.LOAD_LOCK) {
+               this.music = Gdx.audio.newMusic(this.handle);
             }
+         } catch (RuntimeException var3) {
+            Log.error("Failed to load music: " + this.ref, var3);
+            throw var3;
          }
-      });
+
+         final com.badlogic.gdx.audio.Music opened = this.music;
+         this.music.setOnCompletionListener(new com.badlogic.gdx.audio.Music.OnCompletionListener() {
+            @Override
+            public void onCompletion(com.badlogic.gdx.audio.Music m) {
+               if (!opened.isLooping()) {
+                  Music.this.endedPending = true;
+               }
+            }
+         });
+      }
+
+      return this.music;
+   }
+
+   /** Browser only: frees a track that is no longer current (it is held fully decoded in memory there). */
+   private void releaseIfWeb() {
+      if (this.music != null && Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.WebGL) {
+         this.music.dispose();
+         this.music = null;
+      }
    }
 
    public void addListener(MusicListener listener) {
@@ -106,16 +132,21 @@ public class Music {
 
    private void startMusic(float vol, boolean loop) {
       if (currentMusic != null && currentMusic != this) {
-         currentMusic.music.stop();
-         currentMusic.playing = false;
-         currentMusic.fireMusicSwapped(this);
+         Music old = currentMusic;
+         if (old.music != null) {
+            old.music.stop();
+         }
+
+         old.playing = false;
+         old.releaseIfWeb();
+         old.fireMusicSwapped(this);
       }
 
       currentMusic = this;
       this.endedPending = false;
       this.volume = clamp(vol);
       this.fadeDuration = 0;
-      this.music.setLooping(loop);
+      this.gdx().setLooping(loop);
       this.applyVolume();
       this.music.stop();
       if (SoundStore.get().musicOn()) {
@@ -130,17 +161,22 @@ public class Music {
    }
 
    private void applyVolume() {
-      this.music.setVolume(this.volume * SoundStore.get().getMusicVolume());
+      this.gdx().setVolume(this.volume * SoundStore.get().getMusicVolume());
    }
 
    public void pause() {
       this.playing = false;
-      this.music.pause();
+      if (this.music != null) {
+         this.music.pause();
+      }
    }
 
    public void stop() {
       this.playing = false;
-      this.music.stop();
+      if (this.music != null) {
+         this.music.stop();
+      }
+
       if (currentMusic == this) {
          currentMusic = null;
       }
@@ -148,7 +184,7 @@ public class Music {
 
    public void resume() {
       this.playing = true;
-      this.music.play();
+      this.gdx().play();
    }
 
    public boolean playing() {
@@ -191,16 +227,16 @@ public class Music {
    }
 
    public boolean setPosition(float position) {
-      this.music.setPosition(position);
+      this.gdx().setPosition(position);
       return true;
    }
 
    public float getPosition() {
-      return this.music.getPosition();
+      return this.music == null ? 0.0F : this.music.getPosition();
    }
 
    public void setGain(float gain) {
-      this.music.setVolume(gain);
+      this.gdx().setVolume(gain);
    }
 
    public void setPitch(float pitch) {

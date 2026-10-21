@@ -596,12 +596,8 @@ public class YMLDataMap extends HashMap<String, Object> {
 
    public boolean containsMap(String key) {
       if (this.containsKey(key) && this.get(key) != null && !this.get(key).equals("null")) {
-         try {
-            HashMap<String, Object> rawDataMap = (HashMap<String, Object>)this.get(key);
-            return true;
-         } catch (Exception var3) {
-            return false;
-         }
+         // Port: an instanceof test instead of catching ClassCastException (the browser build does not check casts).
+         return this.get(key) instanceof HashMap;
       } else {
          return false;
       }

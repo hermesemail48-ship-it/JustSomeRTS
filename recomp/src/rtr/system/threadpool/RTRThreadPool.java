@@ -28,6 +28,28 @@ public class RTRThreadPool implements Runnable {
    private static List<MobBase> pathMapperRequests = Collections.synchronizedList(new ArrayList<>());
    private static boolean rangeUpdateComplete = true;
    private static boolean pathMapperRequestsComplete = true;
+   /**
+    * Browser build: threads are TeaVM green threads that only switch when one sleeps or yields, so the dedicated
+    * loops must never spin without giving the others (and the render loop) a turn.
+    */
+   public static boolean cooperative = false;
+
+   private static long lastPause;
+
+   /** Cooperative mode: sleeps when idle; when busy (ms == 0) gives up the CPU about every 8 ms of work. */
+   private static void pause(long ms) {
+      long now = System.currentTimeMillis();
+      if (ms == 0L && now - lastPause < 8L) {
+         return;
+      }
+
+      lastPause = now;
+      try {
+         Thread.sleep(ms);
+      } catch (InterruptedException var3) {
+         var3.printStackTrace();
+      }
+   }
 
    public static boolean allThreadsIdle() {
       LightingModule lighting = (LightingModule)StateBase.getModule(ModuleBase.ModuleType.LIGHTING);
@@ -40,6 +62,10 @@ public class RTRThreadPool implements Runnable {
    public static void startThreadPool() {
       System.out.println("Starting Dedicated Threads");
       if (processors <= 0) {
+         processors = 1;
+      }
+
+      if (cooperative) {
          processors = 1;
       }
 
@@ -57,7 +83,9 @@ public class RTRThreadPool implements Runnable {
             public void run() {
                while (true) {
                   RTRThreadPool.processPathRequests();
-                  if (RTRThreadPool.pathRequests.size() == 0) {
+                  if (RTRThreadPool.cooperative) {
+                     RTRThreadPool.pause(RTRThreadPool.pathRequests.size() == 0 ? 5L : 0L);
+                  } else if (RTRThreadPool.pathRequests.size() == 0) {
                      try {
                         Thread.sleep(5L);
                      } catch (InterruptedException var2) {
@@ -79,7 +107,12 @@ public class RTRThreadPool implements Runnable {
                   RTRThreadPool.processRangeUpdates();
                   RTRThreadPool.processLightingUpdates();
                   LightingModule lighting = (LightingModule)StateBase.getModule(ModuleBase.ModuleType.LIGHTING);
-                  if (lighting != null && RTRThreadPool.rangeRequests.size() == 0 && lighting.getLightUpdateStep() == LightingModule.LightUpdateStep.FINISH) {
+                  if (RTRThreadPool.cooperative) {
+                     boolean idle = RTRThreadPool.rangeRequests.size() == 0
+                        && RTRThreadPool.pathMapperRequests.size() == 0
+                        && (lighting == null || lighting.getLightUpdateStep() == LightingModule.LightUpdateStep.FINISH);
+                     RTRThreadPool.pause(idle ? 5L : 0L);
+                  } else if (lighting != null && RTRThreadPool.rangeRequests.size() == 0 && lighting.getLightUpdateStep() == LightingModule.LightUpdateStep.FINISH) {
                      try {
                         Thread.sleep(5L);
                      } catch (InterruptedException var3) {
@@ -104,6 +137,10 @@ public class RTRThreadPool implements Runnable {
                      } catch (SlickException var3) {
                         var3.printStackTrace();
                      }
+                  }
+
+                  if (RTRThreadPool.cooperative) {
+                     RTRThreadPool.pause(particle == null ? 5L : 0L);
                   }
                }
             }

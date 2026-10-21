@@ -83,9 +83,34 @@ public class Mouse {
       cursorHandler = handler;
    }
 
+   /** Buttons pressed by an event consumed since {@link #beginFrame()}: their release waits for the next frame. */
+   private static final boolean[] pressedThisFrame = new boolean[16];
+
+   /** Called once per frame before the events are read (Slick's Input.poll). */
+   public static synchronized void beginFrame() {
+      java.util.Arrays.fill(pressedThisFrame, false);
+   }
+
+   /**
+    * Next queued event. Button state changes as events are consumed, and a release whose press was consumed in the
+    * same frame is held back until the next frame, so a quick click (press and release between two frames, common at
+    * low frame rates) is still seen as held for one frame by code that polls isButtonDown.
+    */
    public static synchronized boolean next() {
       if (head == tail) {
          return false;
+      }
+
+      int b = qButton[head];
+      if (b >= 0 && b < buttons.length) {
+         if (!qState[head] && pressedThisFrame[b]) {
+            return false;
+         }
+
+         buttons[b] = qState[head];
+         if (qState[head]) {
+            pressedThisFrame[b] = true;
+         }
       }
 
       eButton = qButton[head];
@@ -133,10 +158,6 @@ public class Mouse {
       int dy = newY - y;
       x = newX;
       y = newY;
-      if (button >= 0 && button < buttons.length) {
-         buttons[button] = state;
-      }
-
       int next = (tail + 1) % QUEUE_SIZE;
       if (next == head) {
          return;

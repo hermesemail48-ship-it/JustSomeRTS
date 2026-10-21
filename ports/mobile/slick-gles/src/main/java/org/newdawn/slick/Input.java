@@ -604,6 +604,7 @@ public class Input {
          while (Keyboard.next()) {
          }
 
+         Mouse.beginFrame();
          while (Mouse.next()) {
          }
       } else {
@@ -668,6 +669,7 @@ public class Input {
             }
          }
 
+         Mouse.beginFrame();
          while (Mouse.next()) {
             if (Mouse.getEventButton() >= 0) {
                if (Mouse.getEventButtonState()) {

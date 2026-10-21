@@ -41,7 +41,7 @@ public class GdxPlatform extends Platform {
          throw new IOException("Font not found: " + ttf);
       }
 
-      return new GdxPlatform.Font(new GdxFont(Gdx.files.absolute(ttf.getAbsolutePath()), size));
+      return new GdxPlatform.Font(new GdxFont(rtr.compat.GdxFiles.absolute(ttf.getAbsolutePath()), size));
    }
 
    @Override
@@ -53,7 +53,7 @@ public class GdxPlatform extends Platform {
    public Platform.PlatformImage readImage(File file) throws IOException {
       final Pixmap p;
       try {
-         p = new Pixmap(Gdx.files.absolute(file.getAbsolutePath()));
+         p = new Pixmap(rtr.compat.GdxFiles.absolute(file.getAbsolutePath()));
       } catch (RuntimeException var4) {
          throw new IOException("Unable to read image " + file, var4);
       }
