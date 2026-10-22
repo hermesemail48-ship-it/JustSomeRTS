@@ -75,7 +75,10 @@ public class PlayStateGUIController extends GUIControllerBase {
    private PositionArrows positionArrows;
    private ProblemPanel problemPanel;
    private ResourceAndInfluenceBar resourceAndInfluenceBar;
-   /** Set by the phone port: its native build drawer and inspect cards replace the right panel and bottom panels. */
+   /**
+    * Set by the phone port: its inspect cards replace the bottom panels, the build panel slides fully off-screen when
+    * hidden (the phone overlay draws a large handle for it) and the harvest bar is drawn larger.
+    */
    public static boolean touchPanels = false;
    private RightPanel rightPanel;
    private SelectedMobPanel selectedMobPanel;
@@ -279,16 +282,11 @@ public class PlayStateGUIController extends GUIControllerBase {
          this.spellBar.render(this.debug);
          this.systemAndDataBar.render(this.debug);
          this.leftPanel.render(this.debug);
-         boolean phoneBuild = touchPanels
-            && !(rtr.system.Game.getCS() instanceof rtr.states.PlayState && ((rtr.states.PlayState)rtr.system.Game.getCS()).isSandbox());
-         if (!phoneBuild) {
-            this.rightPanel.render(this.debug);
-         }
-
+         this.rightPanel.render(this.debug);
          this.harvestAndTerrainBar.render(this.debug);
          if (touchPanels) {
-            // The phone UI draws its own build drawer and inspect cards; skipping these panels also removes their
-            // click masks. Goal popups keep their usual anchor.
+            // The phone UI draws its own inspect cards; skipping these panels also removes their click masks. Goal
+            // popups keep their usual anchor.
             this.goalPopup.render(this.consolePanel.getY(), this.debug);
          } else {
             if (this.consolePanelEnabled) {

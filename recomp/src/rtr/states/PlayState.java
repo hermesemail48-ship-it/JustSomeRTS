@@ -4899,6 +4899,59 @@ public class PlayState extends StateBase {
       return object.getObjectFlagFactory().getObjectFlags(type, ObjectBase.ObjectSubType.BUILT);
    }
 
+   private MapTilesLoader.TileSet ghostFlagsType;
+   private rtr.objects.objectflags.ObjectFlags ghostFlags;
+
+   /** The placement ghost's footprint on the logical screen as {x, y, w, h} in display pixels, or null when not placing. */
+   public float[] getPlacementGhostBounds() {
+      if (this.gui == null || this.gui.getGUIData().getInterfaceMode() != GUIEnums.InterfaceMode.OBJECT) {
+         return null;
+      }
+
+      MapTilesLoader.TileSet type = this.gui.getGUIData().getPlacementObjectType();
+      if (type == null) {
+         return null;
+      }
+
+      // Same anchoring as DataModule.renderObjectOutline: the ghost is centred on the pointer's tile. Flags are built
+      // per call, so keep the last ones.
+      if (type != this.ghostFlagsType) {
+         this.ghostFlags = this.getBuiltFlags(type);
+         this.ghostFlagsType = type;
+      }
+
+      rtr.objects.objectflags.ObjectFlags f = this.ghostFlags;
+      int left = this.getMouseTileX() - f.getWidth() / 2;
+      int top = this.getMouseTileY() - f.getHeight() / 2;
+      float s = ScaleControl.getInterfaceScale();
+      float tile = 16.0F * ScaleControl.getWorldScale();
+      return new float[]{
+         ScaleControl.getTransformedPositionX(left * 16) * s, ScaleControl.getTransformedPositionY(top * 16) * s, f.getWidth() * tile, f.getHeight() * tile
+      };
+   }
+
+   /** Drags the map by a distance in display pixels, so the ground follows the finger. */
+   public void panByDisplay(float dx, float dy) {
+      float k = ScaleControl.getWorldScale();
+      map.setMapPosition(map.getMapX() + dx / k, map.getMapY() + dy / k);
+   }
+
+   public boolean isBuildSidebarOpen() {
+      return !this.gui.getRightPanel().isPanelHidden();
+   }
+
+   public void setBuildSidebarOpen(boolean open) {
+      if (open != this.isBuildSidebarOpen()) {
+         this.gui.getRightPanel().togglePanelHidden();
+      }
+   }
+
+   /** The build sidebar (desktop right panel) as {x, y, w, h} in display pixels, where it sits when open. */
+   public float[] getBuildSidebarBounds() {
+      float s = ScaleControl.getInterfaceScale();
+      return new float[]{(ScaleControl.getInterfaceWidth() - 196) * s, this.gui.getRightPanel().getY() * s, 196.0F * s, 530.0F * s};
+   }
+
    /** The selected villager, or null; drops a selection whose mob no longer exists. */
    public MobBase getTouchSelectedMob() {
       MobBase m = this.gui.getGUIData().getSelectedMob();

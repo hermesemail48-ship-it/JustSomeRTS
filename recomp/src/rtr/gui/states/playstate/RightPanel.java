@@ -1232,12 +1232,23 @@ public class RightPanel extends PlayStateGUIPanelBase {
          this.x = ScaleControl.getInterfaceWidth() - 10;
       }
 
+      if (PlayStateGUIController.touchPanels) {
+         // Phones: the overlay's handle replaces the small hide tab, and a hidden panel leaves no strip behind.
+         if (this.hidden) {
+            this.x = ScaleControl.getInterfaceWidth() + 4;
+         }
+
+         this.hidePanel.hideButton();
+      }
+
       this.mask.setX(this.x);
       this.mask.setY(this.y);
-      if (this.hidden) {
-         this.hidePanel.render(this.g, this.mouse, this.x - 28, this.y, false, debug);
-      } else {
-         this.hidePanel.render(this.g, this.mouse, this.x + 162, this.y, false, debug);
+      if (!PlayStateGUIController.touchPanels) {
+         if (this.hidden) {
+            this.hidePanel.render(this.g, this.mouse, this.x - 28, this.y, false, debug);
+         } else {
+            this.hidePanel.render(this.g, this.mouse, this.x + 162, this.y, false, debug);
+         }
       }
 
       if (this.backPage == null) {

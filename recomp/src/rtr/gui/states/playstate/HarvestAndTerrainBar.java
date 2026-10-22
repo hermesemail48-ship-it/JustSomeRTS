@@ -6,6 +6,7 @@ import org.newdawn.slick.SlickException;
 import org.newdawn.slick.geom.Rectangle;
 import rtr.SettingsParser;
 import rtr.font.Text;
+import rtr.gui.buttons.GUIButton;
 import rtr.gui.buttons.GUIRoundButton;
 import rtr.gui.buttons.GUISquarePanelButton;
 import rtr.gui.states.BrushLoader;
@@ -165,7 +166,39 @@ public class HarvestAndTerrainBar extends PlayStateGUIPanelBase {
       this.selectedEraseMode = MapModule.EraseMode.ALL;
    }
 
+   /** How much larger the bar is drawn on phones. */
+   public static final float TOUCH_SCALE = 1.35F;
+
    public void render(boolean debug) throws SlickException {
+      if (!PlayStateGUIController.touchPanels) {
+         this.renderBar(debug);
+         return;
+      }
+
+      // Phones: draw the same bar larger, anchored to the bottom-left corner, then scale the hit boxes to match.
+      // Buttons not drawn this frame are moved away so their old boxes cannot be tapped.
+      for (GUIButton b : this.guiButtons) {
+         b.hideButton();
+      }
+
+      float oy = ScaleControl.getInterfaceHeight();
+      this.g.pushTransform();
+      this.g.translate(0.0F, oy);
+      this.g.scale(TOUCH_SCALE, TOUCH_SCALE);
+      this.g.translate(0.0F, -oy);
+
+      try {
+         this.renderBar(debug);
+      } finally {
+         this.g.popTransform();
+      }
+
+      for (GUIButton b : this.guiButtons) {
+         b.scaleIntersectBox(0.0F, oy, TOUCH_SCALE);
+      }
+   }
+
+   private void renderBar(boolean debug) throws SlickException {
       this.x = 6;
       this.y = ScaleControl.getInterfaceHeight() - 49;
       switch (this.selectedBrushMode) {

@@ -36,6 +36,8 @@ public class GUIButton {
    protected int flashAlpha;
    protected boolean flashUp;
    protected GUIToolTipOverlay toolTip;
+   private float baseBoxW = -1.0F;
+   private float baseBoxH;
 
    public GUIButton() throws SlickException {
    }
@@ -67,6 +69,25 @@ public class GUIButton {
    public void hideButton() {
       this.intersectBox.setX(-10000.0F);
       this.intersectBox.setY(-10000.0F);
+   }
+
+   /**
+    * Phone port: after the button was drawn under a scale of {@code s} about (ox, oy), moves its hit box to where it
+    * appeared. The unscaled size is kept so this can run every frame.
+    */
+   public void scaleIntersectBox(float ox, float oy, float s) {
+      if (this.intersectBox.getX() <= -9000.0F) {
+         return;
+      }
+
+      if (this.baseBoxW < 0.0F) {
+         this.baseBoxW = this.intersectBox.getWidth();
+         this.baseBoxH = this.intersectBox.getHeight();
+      }
+
+      this.intersectBox.setBounds(
+         ox + (this.intersectBox.getX() - ox) * s, oy + (this.intersectBox.getY() - oy) * s, this.baseBoxW * s, this.baseBoxH * s
+      );
    }
 
    public boolean intersects(Rectangle mouse) {

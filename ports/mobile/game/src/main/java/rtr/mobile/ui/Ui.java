@@ -67,6 +67,10 @@ public final class Ui {
    public static final Color GOOD = new Color(0.55F, 0.95F, 0.45F, 1.0F);
    public static final Color BAR_BACK = new Color(0.05F, 0.03F, 0.02F, 1.0F);
    public static final Color DIM_SCREEN = new Color(0.0F, 0.0F, 0.0F, 0.45F);
+   public static final Color SHADOW = new Color(0.0F, 0.0F, 0.0F, 0.35F);
+   public static final Color SHEEN = new Color(1.0F, 0.9F, 0.7F, 0.06F);
+   public static final Color PILL = new Color(0.06F, 0.04F, 0.02F, 0.78F);
+   public static final Color DANGER = new Color(0.55F, 0.13F, 0.10F, 1.0F);
 
    private SpriteBatch batch;
    private ShapeRenderer shapes;
@@ -181,6 +185,9 @@ public final class Ui {
    private void useShapes() {
       if (this.mode != 1) {
          this.flush();
+         // SpriteBatch.end() turns blending off; shapes need it for translucent fills.
+         Gdx.gl.glEnable(GL20.GL_BLEND);
+         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
          this.shapes.begin(ShapeRenderer.ShapeType.Filled);
          this.mode = 1;
       }
@@ -221,10 +228,109 @@ public final class Ui {
       this.block(x, y, w, h);
    }
 
+   /** A filled rectangle with rounded corners (no overlapping pieces, so translucent colours blend evenly). */
+   public void roundRect(float x, float y, float w, float h, float r, Color c) {
+      r = Math.max(0.0F, Math.min(r, Math.min(w, h) / 2.0F));
+      this.useShapes();
+      this.shapes.setColor(c);
+      if (r < 1.0F) {
+         this.shapes.rect(x, y, w, h);
+         return;
+      }
+
+      this.shapes.rect(x + r, y, w - r * 2.0F, h);
+      this.shapes.rect(x, y + r, r, h - r * 2.0F);
+      this.shapes.rect(x + w - r, y + r, r, h - r * 2.0F);
+      // y points down, so 180..270 degrees is the top-left quarter.
+      this.shapes.arc(x + r, y + r, r, 180.0F, 90.0F, 8);
+      this.shapes.arc(x + w - r, y + r, r, 270.0F, 90.0F, 8);
+      this.shapes.arc(x + w - r, y + h - r, r, 0.0F, 90.0F, 8);
+      this.shapes.arc(x + r, y + h - r, r, 90.0F, 90.0F, 8);
+   }
+
+   public float corner() {
+      return this.unit() * 0.14F;
+   }
+
+   /** A rounded frame: soft drop shadow, gold border, fill and a faint sheen on the upper half. */
    public void frame(float x, float y, float w, float h, Color fill) {
+      float b = Math.max(2.0F, this.unit() * 0.045F);
+      float r = this.corner();
+      float sh = this.unit() * 0.06F;
+      this.roundRect(x - b + sh * 0.5F, y - b + sh, w + b * 2.0F, h + b * 2.0F, r + b, SHADOW);
+      this.roundRect(x - b, y - b, w + b * 2.0F, h + b * 2.0F, r + b, BORDER);
+      this.roundRect(x, y, w, h, r, fill);
+      this.roundRect(x + b, y + b, w - b * 2.0F, Math.min(h * 0.45F, h - b * 2.0F), Math.max(0.0F, r - b), SHEEN);
+   }
+
+   /** A round button (fill, border and shadow like {@link #frame}); the caller draws its icon. */
+   public boolean circleButton(float cx, float cy, float radius, Color base, Action tap) {
+      float d = radius * 2.0F;
+      boolean down = this.isPressed(cx - radius, cy - radius, d, d);
       float b = Math.max(2.0F, this.unit() * 0.05F);
-      this.rect(x - b, y - b, w + b * 2.0F, h + b * 2.0F, BORDER);
-      this.rect(x, y, w, h, fill);
+      this.useShapes();
+      this.shapes.setColor(SHADOW);
+      this.shapes.circle(cx + this.unit() * 0.03F, cy + this.unit() * 0.06F, radius + b, 32);
+      this.shapes.setColor(BORDER);
+      this.shapes.circle(cx, cy, radius + b, 32);
+      this.shapes.setColor(down ? BUTTON_PRESSED : base);
+      this.shapes.circle(cx, cy, radius, 32);
+      this.addHit(cx - radius, cy - radius, d, d, tap, null);
+      return down;
+   }
+
+   /** An X made of two thick strokes. */
+   public void cross(float cx, float cy, float size, float thickness, Color c) {
+      this.useShapes();
+      this.shapes.setColor(c);
+      float s = size / 2.0F;
+      this.shapes.rectLine(cx - s, cy - s, cx + s, cy + s, thickness);
+      this.shapes.rectLine(cx - s, cy + s, cx + s, cy - s, thickness);
+   }
+
+   /** A chevron pointing left (dir -1) or right (dir 1). */
+   public void chevron(float cx, float cy, float size, float thickness, int dir, Color c) {
+      this.useShapes();
+      this.shapes.setColor(c);
+      float s = size / 2.0F;
+      float tip = cx + dir * s * 0.5F;
+      float back = cx - dir * s * 0.5F;
+      this.shapes.rectLine(back, cy - s, tip, cy, thickness);
+      this.shapes.rectLine(tip, cy, back, cy + s, thickness);
+      this.shapes.circle(tip, cy, thickness / 2.0F, 8);
+   }
+
+   /** A cog wheel icon. */
+   public void gear(float cx, float cy, float radius, Color c, Color hole) {
+      this.useShapes();
+      this.shapes.setColor(c);
+      float tw = radius * 0.42F;
+      float th = radius * 0.5F;
+
+      for (int i = 0; i < 8; i++) {
+         this.shapes.rect(cx - tw / 2.0F, cy - radius - th * 0.35F, tw / 2.0F, radius + th * 0.35F, tw, th, 1.0F, 1.0F, i * 45.0F);
+      }
+
+      this.shapes.circle(cx, cy, radius * 0.82F, 24);
+      this.shapes.setColor(hole);
+      this.shapes.circle(cx, cy, radius * 0.36F, 16);
+   }
+
+   /** A rectangular outline. */
+   public void outline(float x, float y, float w, float h, float t, Color c) {
+      this.rect(x, y, w, t, c);
+      this.rect(x, y + h - t, w, t, c);
+      this.rect(x, y + t, t, h - t * 2.0F, c);
+      this.rect(x + w - t, y + t, t, h - t * 2.0F, c);
+   }
+
+   /** Text on a small rounded dark pill, centred on (cx, cy). */
+   public void pill(BitmapFont f, String s, float cx, float cy, Color c) {
+      float tw = this.textWidth(f, s);
+      float ph = this.lineHeight(f) * 1.9F;
+      float pw = tw + ph * 0.9F;
+      this.roundRect(cx - pw / 2.0F, cy - ph / 2.0F, pw, ph, ph / 2.0F, PILL);
+      this.textCentered(f, s, cx, cy, c);
    }
 
    /** Swallows touches in an area without an action. */
